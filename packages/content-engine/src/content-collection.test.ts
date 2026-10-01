@@ -623,9 +623,10 @@ describe("content collections", () => {
       },
       {
         update: (schema: MutableCollectionSchema) => {
-          schema.properties.title.enum = ["Only this title"];
+          schema.properties.title.const = "Only this title";
         },
-        message: 'Unsupported JSON Schema keyword "enum" at #/properties/title',
+        message:
+          'Unsupported JSON Schema keyword "const" at #/properties/title',
       },
       {
         update: (schema: MutableCollectionSchema) => {

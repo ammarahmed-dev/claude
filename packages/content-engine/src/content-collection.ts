@@ -25,6 +25,19 @@ const legacyCollectionSlugPattern = "^[a-z0-9]+(?:-[a-z0-9]+)*$";
 // scripts such as Hindi; uppercase letters, separators and symbols are excluded.
 const legacyUnicodeCollectionSlugPattern =
   "^(?!.*[\\p{Lu}\\p{Lt}])[\\p{L}\\p{N}][\\p{L}\\p{M}\\p{N}]*(?:-[\\p{L}\\p{N}][\\p{L}\\p{M}\\p{N}]*)*$(?![\\s\\S])";
+const isCalendarDate = (value: string) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (match === null) {
+    return false;
+  }
+  const [year, month, day] = [match[1], match[2], match[3]].map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+};
 const collectionSlugSchemaId = "https://webstudio.is/schemas/slug";
 const collectionSlugSchema = {
   $id: collectionSlugSchemaId,
@@ -53,7 +66,16 @@ export type CollectionField = Readonly<{
   label: string;
   description?: string;
   type: "string" | "number" | "integer" | "boolean";
-  control: "text" | "textarea" | "slug" | "number" | "checkbox";
+  control:
+    | "text"
+    | "textarea"
+    | "slug"
+    | "select"
+    | "date"
+    | "number"
+    | "checkbox";
+  /** Allowed values for the `select` control (JSON Schema `enum`). */
+  options?: readonly string[];
   required: boolean;
   minLength?: number;
   maxLength?: number;
@@ -151,7 +173,7 @@ const commonSchemaKeywords = new Set([
 const schemaKeywordsByType: Readonly<
   Record<CollectionFieldType, ReadonlySet<string>>
 > = {
-  string: new Set(["minLength", "maxLength", "$ref"]),
+  string: new Set(["minLength", "maxLength", "$ref", "enum", "format"]),
   number: new Set(["minimum", "maximum"]),
   integer: new Set(["minimum", "maximum"]),
   boolean: new Set(),
@@ -344,6 +366,7 @@ const validateFieldSchema = (
   validateSchemaAnnotations(schema, path);
 
   if (type === "string") {
+    validateStringChoiceKeywords(schema, path);
     const minLength = getOptionalNonnegativeIntegerKeyword({
       schema,
       path,
@@ -391,6 +414,43 @@ const validateFieldSchema = (
         `Limits must allow at least one whole number at ${getSchemaLocation(path)}`
       );
     }
+  }
+};
+
+export const collectionSelectOptionLimit = 256;
+const collectionDateFormat = "date";
+
+const validateStringChoiceKeywords = (
+  schema: Readonly<Record<string, unknown>>,
+  path: readonly string[]
+) => {
+  if (
+    Object.hasOwn(schema, "format") &&
+    schema.format !== collectionDateFormat
+  ) {
+    throw new ContentCollectionError(
+      `format must be "${collectionDateFormat}" at ${getSchemaKeywordLocation(path, "format")}`
+    );
+  }
+  if (Object.hasOwn(schema, "enum") === false) {
+    return;
+  }
+  const options = schema.enum;
+  if (
+    Array.isArray(options) === false ||
+    options.length === 0 ||
+    options.length > collectionSelectOptionLimit ||
+    options.some(
+      (option) =>
+        typeof option !== "string" ||
+        option.trim() === "" ||
+        getUtf8ByteLength(option) > maximumPropertyKeyBytes
+    ) ||
+    new Set(options).size !== options.length
+  ) {
+    throw new ContentCollectionError(
+      `enum must list 1-${collectionSelectOptionLimit} unique non-empty strings at ${getSchemaKeywordLocation(path, "enum")}`
+    );
   }
 };
 
@@ -500,7 +560,7 @@ const getField = ({
   const declaredControl = extension?.control;
   const supportedControls =
     type === "string"
-      ? new Set(["text", "textarea", "slug"])
+      ? new Set(["text", "textarea", "slug", "select", "date"])
       : type === "number" || type === "integer"
         ? new Set(["number"])
         : type === "boolean"
@@ -531,16 +591,35 @@ const getField = ({
         `Webstudio's slug schema reference requires a slug control for property "${key}"`
       );
     }
+    const hasOptions = Array.isArray(value.enum);
+    const hasDateFormat = value.format === collectionDateFormat;
+    if (declaredControl === "select" && !hasOptions) {
+      throw new ContentCollectionError(
+        `Select control for property "${key}" requires an enum`
+      );
+    }
+    if (declaredControl === "date" && !hasDateFormat) {
+      throw new ContentCollectionError(
+        `Date control for property "${key}" requires format "${collectionDateFormat}"`
+      );
+    }
     const control =
       declaredControl === "text" ||
       declaredControl === "textarea" ||
-      declaredControl === "slug"
+      declaredControl === "slug" ||
+      declaredControl === "select" ||
+      declaredControl === "date"
         ? declaredControl
-        : "text";
+        : hasOptions
+          ? "select"
+          : hasDateFormat
+            ? "date"
+            : "text";
     return {
       ...shared,
       type: "string",
       control,
+      options: hasOptions ? (value.enum as string[]) : undefined,
       minLength: getNonnegativeInteger(value.minLength),
       maxLength: getNonnegativeInteger(value.maxLength),
     };
@@ -654,6 +733,12 @@ export const parseCollectionConfig = (
     strictTypes: false, // A referenced schema can supply the field's type.
     ownProperties: true,
     schemas: [collectionSlugSchema],
+    formats: {
+      [collectionDateFormat]: {
+        type: "string",
+        validate: isCalendarDate,
+      },
+    },
   });
   let parser;
   try {
@@ -1358,6 +1443,8 @@ const serializeCollectionField = (
     "$ref",
     "minimum",
     "maximum",
+    "enum",
+    "format",
   ]) {
     delete result[keyword];
   }
@@ -1367,6 +1454,12 @@ const serializeCollectionField = (
     }
     if (field.maxLength !== undefined) {
       result.maxLength = field.maxLength;
+    }
+    if (field.control === "select" && field.options !== undefined) {
+      result.enum = [...field.options];
+    }
+    if (field.control === "date") {
+      result.format = collectionDateFormat;
     }
   } else if (field.type === "number" || field.type === "integer") {
     if (field.minimum !== undefined) {
@@ -1384,7 +1477,12 @@ const serializeCollectionField = (
     Object.keys(originalExtension).length === 0;
   const extension = { ...originalExtension };
   delete extension.control;
-  if (field.control === "textarea" || field.control === "slug") {
+  if (
+    field.control === "textarea" ||
+    field.control === "slug" ||
+    field.control === "select" ||
+    field.control === "date"
+  ) {
     extension.control = field.control;
   } else if (originalExtension.control === field.control) {
     extension.control = field.control;
