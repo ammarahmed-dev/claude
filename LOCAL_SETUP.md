@@ -14,6 +14,35 @@ enables the local dev login, so no GitHub app is needed.
 
 Tip: if `curl` is used inside a sandbox with a proxy, pass `--noproxy '*'`.
 
+## Run the production build on localhost (verified 2026-10-01)
+
+The same thing a server would run, instead of the dev server. Needs Node 22, pnpm 9 and Docker.
+
+```sh
+pnpm install --frozen-lockfile
+pnpm --filter=@webstudio-is/prisma-client generate
+pnpm -r --filter='!./fixtures/*' --filter='!@webstudio-is/builder' build
+
+# 1. database + REST layer in Docker (first run applies all migrations, then exits and leaves them running)
+LOCAL_DEV_START_BUILDER=false pnpm dev
+
+# 2. production build of the editor, served over https
+cd apps/builder
+BUILDER_TARGET=node pnpm build
+node scripts/serve-https.mjs            # https://wstd.dev:5174
+```
+
+Open **https://wstd.dev:5174/** and choose **Login with Secret**: the secret is `AUTH_SECRET` from
+`apps/builder/.env` (`0000` by default, local use only) and any email address. `wstd.dev` and
+`p-<project-id>.wstd.dev` resolve to 127.0.0.1 through public DNS, and `https/` ships a trusted
+certificate for `*.wstd.dev` (valid until 2026-11-26; pull the repository for a renewed one).
+
+Verified: a fresh browser logs in, the dashboard lists the project, and the editor opens with the CMS
+entries rendered on the canvas, about 10 seconds from first request to a rendered page.
+
+If the editor cannot call itself (login loops back), start it with `NODE_TLS_REJECT_UNAUTHORIZED=0`;
+the server fetches its own `wstd.dev` address during sign-in.
+
 ## Gotchas
 
 - First page loads are slow (Vite compiles on demand) and may reload once ("Re-optimizing dependencies").
