@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { contentEngineLimits } from "./limits";
 import {
   collectionConfigFilename,
   collectionEntryFieldClearValue,
@@ -678,7 +679,7 @@ describe("content collections", () => {
     );
 
     const tooManyFields = JSON.parse(createDefaultCollectionConfig());
-    for (let index = 0; index < 300; index += 1) {
+    for (let index = 0; index <= contentEngineLimits.jsonFields; index += 1) {
       tooManyFields.properties[`field${index}`] = { type: "string" };
     }
     expect(() => parseCollectionConfig(JSON.stringify(tooManyFields))).toThrow(

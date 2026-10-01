@@ -1,4 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
+import { contentEngineLimits } from "./limits";
 import { createCanonicalAssetFileEntry } from "./canonical";
 import { prepareCanonicalContentMetadata } from "./document-metadata";
 
@@ -203,7 +204,9 @@ describe("content metadata cache", () => {
     ).resolves.toMatchObject({
       document: { properties: { title: "Local" } },
     });
-    expect(readBytes).toHaveBeenCalledWith(64 * 1024 + 13);
+    expect(readBytes).toHaveBeenCalledWith(
+      contentEngineLimits.frontmatterBytes + 13
+    );
   });
 
   test("retains the full Markdown budget when an excerpt is required", async () => {
