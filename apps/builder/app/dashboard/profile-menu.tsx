@@ -1,0 +1,129 @@
+import { forwardRef } from "react";
+import { ChevronDownIcon, UpgradeIcon } from "@webstudio-is/icons";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  Avatar,
+  theme,
+  Button,
+  ProChip,
+  DropdownMenuSeparator,
+  Text,
+  Flex,
+} from "@webstudio-is/design-system";
+import { useNavigate } from "@remix-run/react";
+import { useStore } from "@nanostores/react";
+import { logoutPath, planSubscriptionPath } from "~/shared/router-utils";
+import type { User } from "~/shared/db/user.server";
+import { $purchases } from "~/shared/nano-states";
+import { ColorSchemeMenu } from "~/shared/color-scheme-menu";
+
+const getAvatarLetter = (title?: string) => {
+  return (title || "X").charAt(0).toLocaleUpperCase();
+};
+
+const defaultUserName = "James Bond";
+
+const ProfileButton = forwardRef<
+  HTMLButtonElement,
+  {
+    name: string;
+    image?: string;
+    hasPurchases?: boolean;
+  }
+>(({ image, name, hasPurchases, ...rest }, forwardedRef) => {
+  return (
+    <Flex gap="2" align="center">
+      <Button
+        color="ghost"
+        aria-label="Profile menu"
+        {...rest}
+        ref={forwardedRef}
+        prefix={
+          <Avatar src={image} fallback={getAvatarLetter(name)} alt={name} />
+        }
+        suffix={<ChevronDownIcon size={12} />}
+        css={{
+          // Exception for avatar. May need to introduce a 32px controls size later.
+          height: theme.spacing[13],
+        }}
+      >
+        {name && (
+          <Text variant="labels" truncate>
+            {name}
+          </Text>
+        )}
+      </Button>
+      {hasPurchases === false && (
+        <ProChip css={{ flexShrink: 0 }}>Free</ProChip>
+      )}
+    </Flex>
+  );
+});
+
+export const ProfileMenu = ({ user }: { user: User }) => {
+  const navigate = useNavigate();
+  const nameOrEmail = user.username ?? user.email ?? defaultUserName;
+  const purchases = useStore($purchases);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <ProfileButton
+          image={user.image || undefined}
+          name={nameOrEmail}
+          hasPurchases={purchases.length > 0}
+        />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" sideOffset={4} width="regular">
+        <DropdownMenuLabel>
+          {user.username ?? defaultUserName}
+          <Text>{user.email}</Text>
+        </DropdownMenuLabel>
+        {purchases.length > 0 && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Plans</DropdownMenuLabel>
+          </>
+        )}
+        {purchases.map((purchase, index) =>
+          purchase.subscriptionId ? (
+            <DropdownMenuItem
+              key={purchase.subscriptionId}
+              onSelect={() => {
+                window.location.href = planSubscriptionPath(
+                  purchase.subscriptionId
+                );
+              }}
+            >
+              {purchase.planName}
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuLabel key={index} css={{ fontWeight: "normal" }}>
+              {purchase.planName}
+            </DropdownMenuLabel>
+          )
+        )}
+        {purchases.length === 0 && (
+          <DropdownMenuItem
+            onSelect={() => {
+              window.open("https://webstudio.is/pricing");
+            }}
+            css={{ gap: theme.spacing[3] }}
+          >
+            <UpgradeIcon />
+            <div>Upgrade</div>
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuSeparator />
+        <ColorSchemeMenu />
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => navigate(logoutPath())}>
+          Sign out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};

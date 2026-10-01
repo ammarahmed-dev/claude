@@ -1,0 +1,549 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { parse, definitionSyntax, lexer, type CssNode } from "css-tree";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore @todo add the missing DSNode type definition
+import type { DSNode } from "css-tree";
+import properties from "mdn-data/css/properties.json";
+import syntaxes from "mdn-data/css/syntaxes.json";
+import selectors from "mdn-data/css/selectors.json";
+import data from "css-tree/dist/data";
+import type {
+  KeywordValue,
+  StyleValue,
+  Unit,
+  UnitValue,
+  UnparsedValue,
+  FontFamilyValue,
+  CssProperty,
+} from "@webstudio-is/css-engine";
+import * as customData from "../src/custom-data";
+import { camelCaseProperty } from "../src/parse-css";
+
+const units: Record<string, Array<string>> = {
+  number: [],
+  // consider % as unit
+  percentage: ["%"],
+  ...data.units,
+};
+
+type Property = keyof typeof properties;
+type Value = (typeof properties)[Property];
+
+const autoValue = {
+  type: "keyword",
+  value: "auto",
+} as const;
+
+const getMdnUrl = (property: string, config: Value): string =>
+  "mdn_url" in config
+    ? config.mdn_url
+    : `https://developer.mozilla.org/en-US/search?q=${encodeURIComponent(property)}`;
+
+// Normalize browser dependant properties.
+const normalizedValues = {
+  // dependsOnUserAgent
+  "font-family": {
+    type: "fontFamily",
+    value: ["serif"],
+  } satisfies FontFamilyValue,
+  // startOrNamelessValueIfLTRRightIfRTL
+  "text-align": { type: "keyword", value: "start" },
+  // canvastext
+  color: { type: "keyword", value: "black" },
+  "column-gap": {
+    type: "unit",
+    value: 0,
+    unit: "px",
+  },
+  "row-gap": {
+    type: "unit",
+    value: 0,
+    unit: "px",
+  },
+  "background-size": autoValue,
+  "text-size-adjust": autoValue,
+} as const;
+
+const beautifyKeyword = (_property: string, keyword: string) => {
+  /*
+   * The default value is `invert` or `currentcolor` for some css properties.
+   * But that isn't supported in all browsers, example outline-color.
+   * So, going with currentColor for consistency.
+   * https://developer.mozilla.org/en-US/docs/Web/CSS/outline-color#formal_definition
+   */
+  if (keyword === "currentcolor" || keyword === "invertOrCurrentColor") {
+    return "currentColor";
+  }
+  return keyword;
+};
+
+const convertToStyleValue = (
+  node: CssNode,
+  property: string,
+  unitGroups: Set<string>
+): undefined | UnitValue | KeywordValue | UnparsedValue => {
+  if (node?.type === "Identifier") {
+    return {
+      type: "keyword",
+      value: beautifyKeyword(property, node.name),
+    };
+  }
+  if (node?.type === "Number") {
+    let unit: Unit = "number";
+    // set explicit unit when 0 initial is specified without unit
+    if (unitGroups.has("number") === false) {
+      if (unitGroups.has("length")) {
+        unit = "px";
+      } else {
+        return;
+      }
+    }
+    return {
+      type: "unit",
+      unit,
+      value: Number(node.value),
+    };
+  }
+  if (node?.type === "Percentage") {
+    return {
+      type: "unit",
+      unit: "%",
+      value: Number(node.value),
+    };
+  }
+  if (node?.type === "Dimension") {
+    return {
+      type: "unit",
+      unit: node.unit as Unit,
+      value: Number(node.value),
+    };
+  }
+};
+
+const parseInitialValue = (
+  property: string,
+  value: string,
+  unitGroups: Set<string>
+): StyleValue => {
+  // Our default values hardcoded because no single standard
+  if (property in normalizedValues) {
+    return normalizedValues[property as keyof typeof normalizedValues];
+  }
+  const ast = parse(value, { context: "value" });
+  if (ast.type !== "Value") {
+    throw Error(`Unknown parsed type ${ast.type}`);
+  }
+
+  // more than 2 values consider as keyword
+  if (ast.children.first !== ast.children.last) {
+    const values: Array<
+      Exclude<ReturnType<typeof convertToStyleValue>, undefined>
+    > = [];
+    for (const node of ast.children) {
+      const styleValue = convertToStyleValue(node, property, unitGroups);
+      if (styleValue === undefined) {
+        return { type: "unparsed", value };
+      }
+      values.push(styleValue);
+    }
+    return {
+      type: "tuple",
+      value: values,
+    };
+  }
+
+  const node = ast.children.first;
+  let styleValue: undefined | StyleValue;
+  if (node) {
+    styleValue = convertToStyleValue(node, property, unitGroups);
+  }
+  if (styleValue !== undefined) {
+    return styleValue;
+  }
+
+  return { type: "unparsed", value };
+};
+
+const walkSyntax = (
+  syntax: string,
+  enter: (node: DSNode) => void,
+  parsedSyntaxes = new Set<string>()
+) => {
+  // fix cyclic syntaxes
+  if (parsedSyntaxes.has(syntax)) {
+    return;
+  }
+  parsedSyntaxes.add(syntax);
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore @todo add missing type defitions for definitionSyntax
+  const parsed = definitionSyntax.parse(syntax);
+
+  const walk = (node: DSNode) => {
+    if (node.type === "Group") {
+      for (const term of node.terms) {
+        // skip functions and their content as complex values
+        if (term.type === "Function") {
+          break;
+        }
+        walk(term);
+      }
+      return;
+    }
+    if (node.type === "Multiplier") {
+      walk(node.term);
+      return;
+    }
+    if (node.type === "Type") {
+      if (node.name === "deprecated-system-color") {
+        return;
+      }
+      const nestedSyntax = syntaxes[node.name as keyof typeof syntaxes]?.syntax;
+      if (nestedSyntax === undefined) {
+        enter(node);
+      } else {
+        // resolve nested syntaxes
+        walkSyntax(nestedSyntax, enter, parsedSyntaxes);
+      }
+      return;
+    }
+    if (node.type === "Property") {
+      // resolve other properties references
+      if (node.name in properties) {
+        walkSyntax(
+          properties[node.name as Property].syntax,
+          enter,
+          parsedSyntaxes
+        );
+      }
+      return;
+    }
+    enter(node);
+  };
+
+  walk(parsed);
+};
+
+const autogeneratedHint = "// This file was generated by pnpm mdn-data\n";
+
+const writeToFile = (fileName: string, constant: string, data: unknown) => {
+  const content =
+    autogeneratedHint +
+    `export const ${constant} = ` +
+    JSON.stringify(data, null, 2) +
+    " as const;";
+
+  writeFileSync(join(targetDir, fileName), content, "utf8");
+};
+
+// Most shorthands are identifiable in MDN data because their `initial` value
+// is an array of subproperties. These additional shorthands still expand into
+// multiple longhands, but MDN models them with a scalar initial value like
+// `normal`, so we need to include them explicitly.
+const additionalShorthandProperties = [
+  "font-synthesis",
+  "font-variant",
+  "text-wrap",
+  "white-space",
+];
+
+// Properties we don't support in this form.
+const unsupportedProperties = [
+  "--*",
+  // shorthand properties
+  "all",
+  "overflow",
+  "background-position",
+  "border-block-style",
+  "border-block-width",
+  "border-block-color",
+  "border-inline-style",
+  "border-inline-width",
+  "border-inline-color",
+];
+
+type FilteredProperties = { [property: string]: Value };
+
+const filterData = () => {
+  let property: Property;
+  const allLonghands = {} as FilteredProperties;
+  const allShorthands = {} as FilteredProperties;
+  const animatableLonghands = {} as FilteredProperties;
+  const animatableShorthands = {} as FilteredProperties;
+
+  for (property in properties) {
+    if (unsupportedProperties.includes(property)) {
+      continue;
+    }
+
+    const config = properties[property];
+
+    const isAnimatableProperty =
+      property.startsWith("-") === false &&
+      config.animationType !== "discrete" &&
+      config.animationType !== "notAnimatable";
+
+    const isShorthandProperty =
+      Array.isArray(config.initial) ||
+      additionalShorthandProperties.includes(property);
+
+    if (isShorthandProperty) {
+      allShorthands[property] = config;
+      if (isAnimatableProperty) {
+        animatableShorthands[property] = config;
+      }
+      continue;
+    }
+
+    allLonghands[property] = config;
+    if (isAnimatableProperty) {
+      animatableLonghands[property] = config;
+    }
+  }
+
+  return {
+    allLonghands,
+    allShorthands,
+    animatableLonghands,
+    animatableShorthands,
+  };
+};
+
+const getPropertiesData = (
+  customPropertiesData: typeof customData.propertiesData,
+  filteredProperties: FilteredProperties
+) => {
+  const propertiesData = { ...customPropertiesData };
+
+  let property: string;
+  for (property in filteredProperties) {
+    const config = filteredProperties[property];
+    const unitGroups = new Set<string>();
+    walkSyntax(config.syntax, (node) => {
+      if (node.type === "Type") {
+        if (node.name === "number-token" || node.name === "number") {
+          unitGroups.add("number");
+          return;
+        }
+
+        // type names match unit groups
+        if (node.name in units) {
+          unitGroups.add(node.name);
+          return;
+        }
+      }
+    });
+
+    if (Array.isArray(config.initial)) {
+      throw new Error(
+        `Property ${property} contains non string initial value ${config.initial.join(
+          ", "
+        )}`
+      );
+    }
+
+    propertiesData[property] = {
+      unitGroups: Array.from(unitGroups),
+      inherited: config.inherited,
+      initial: parseInitialValue(property, config.initial, unitGroups),
+      mdnUrl: getMdnUrl(property, config),
+    };
+  }
+
+  return propertiesData;
+};
+
+const pseudoElements = Object.keys(selectors)
+  .filter((selector) => {
+    return selector.startsWith("::");
+  })
+  .map((selector) => selector.slice(2));
+
+const pseudoClasses = Object.keys(selectors)
+  .filter((selector) => {
+    return selector.startsWith(":") && !selector.startsWith("::");
+  })
+  .map((selector) => selector.slice(1));
+
+const getKeywordValues = (filteredProperties: FilteredProperties) => {
+  const result = { ...customData.keywordValues };
+  // https://www.w3.org/TR/css-values/#common-keywords
+  const commonKeywords = ["initial", "inherit", "unset"];
+
+  for (const property in filteredProperties) {
+    // prevent merging with custom keywords
+    if (result[property]) {
+      continue;
+    }
+    const keywords = new Set<string>();
+    walkSyntax(filteredProperties[property].syntax, (node) => {
+      if (node.type === "Keyword") {
+        keywords.add(beautifyKeyword(property, node.name));
+      }
+    });
+
+    for (const commonKeyword of commonKeywords) {
+      // Delete to add commonKeyword at the end of the set
+      keywords.delete(commonKeyword);
+      keywords.add(commonKeyword);
+    }
+
+    result[property] = [...(result[property] ?? []), ...keywords];
+  }
+
+  return result;
+};
+
+const getTypes = (propertiesData: typeof customData.propertiesData) => {
+  let types = "";
+
+  const camelCasedProperties = Object.keys(propertiesData).map((property) =>
+    JSON.stringify(camelCaseProperty(property as CssProperty))
+  );
+  types += `export type CamelCasedProperty = ${camelCasedProperties.join(" | ")};\n\n`;
+  const hyphenatedProperties = Object.keys(propertiesData).map((property) =>
+    JSON.stringify(property)
+  );
+  types += `export type HyphenatedProperty = ${hyphenatedProperties.join(" | ")};\n\n`;
+
+  const unitLiterals = Object.values(units)
+    .flat()
+    .map((unit) => JSON.stringify(unit));
+  types += `export type Unit = ${unitLiterals.join(" | ")};\n`;
+
+  return types;
+};
+
+const filteredData = filterData();
+
+const getLonghandInitials = (
+  property: Property,
+  seen = new Set<Property>()
+): Array<[property: string, initial: string]> => {
+  if (seen.has(property)) {
+    return [];
+  }
+  const config = properties[property];
+  if (Array.isArray(config.initial) === false) {
+    return [[property, config.initial]];
+  }
+  const nextSeen = new Set(seen).add(property);
+  return config.initial.flatMap((longhand) =>
+    getLonghandInitials(longhand as Property, nextSeen)
+  );
+};
+
+const getSyntaxShorthandInitials = (property: Property) => {
+  const initials = getLonghandInitials(property);
+  const propertySyntax = lexer.getProperty(property);
+  if (propertySyntax === null) {
+    return [];
+  }
+
+  const references = new Set<string>();
+  definitionSyntax.walk(propertySyntax.syntax, (node) => {
+    if (node.type === "Property" && "name" in node) {
+      references.add(node.name);
+    }
+  });
+  if (
+    references.size !== initials.length ||
+    initials.some(([longhand]) => references.has(longhand) === false)
+  ) {
+    return [];
+  }
+  return initials;
+};
+
+const longhandPropertiesData = getPropertiesData(
+  customData.propertiesData,
+  filteredData.allLonghands
+);
+
+const targetDir = join(process.cwd(), process.argv.slice(2).pop() as string);
+mkdirSync(targetDir, { recursive: true });
+writeToFile("units.ts", "units", units);
+
+const propertiesData = Object.fromEntries(
+  Object.entries(longhandPropertiesData).map(([property, data]) => [
+    property,
+    data,
+  ])
+);
+const propertiesContent = `${autogeneratedHint}
+import type { __HyphenatedProperty, StyleValue } from "@webstudio-is/css-engine"
+type UnitGroup = ${Object.keys(units)
+  .map((item) => JSON.stringify(item))
+  .join(" | ")}
+type PropertyData = {
+  unitGroups: UnitGroup[],
+  inherited: boolean,
+  initial: StyleValue,
+  mdnUrl?: string
+}
+type Properties =
+  Record<__HyphenatedProperty, PropertyData> &
+  Record<\`--\${string}\`, undefined>
+export const properties: Properties = ${JSON.stringify(propertiesData, null, 2)}
+`;
+writeFileSync(join(targetDir, "properties.ts"), propertiesContent);
+
+const keywordValues = Object.fromEntries(
+  Object.entries(getKeywordValues(filteredData.allLonghands)).map(
+    ([property, data]) => [property, data]
+  )
+);
+const keywordValuesContent = `${autogeneratedHint}
+import type { __HyphenatedProperty } from "@webstudio-is/css-engine"
+type KeywordValues =
+  Record<__HyphenatedProperty, string[]> &
+  Record<\`--\${string}\`, undefined>
+export const keywordValues: KeywordValues = ${JSON.stringify(keywordValues, null, 2)}
+`;
+writeFileSync(join(targetDir, "keyword-values.ts"), keywordValuesContent);
+
+writeToFile(
+  "shorthand-properties.ts",
+  "shorthandProperties",
+  Object.keys(filteredData.allShorthands)
+);
+writeToFile(
+  "shorthand-expansions.ts",
+  "shorthandExpansions",
+  Object.fromEntries(
+    Object.entries(filteredData.allShorthands).flatMap(([property, config]) => {
+      if (Array.isArray(config.initial) === false) {
+        return [];
+      }
+      const initials = getSyntaxShorthandInitials(property as Property);
+      if (initials.length === 0) {
+        return [];
+      }
+      return [[property, Object.fromEntries(initials)]];
+    })
+  )
+);
+writeToFile(
+  "animatable-properties.ts",
+  "animatableProperties",
+  Object.keys(filteredData.animatableLonghands)
+);
+writeToFile(
+  "property-statuses.ts",
+  "propertyStatuses",
+  Object.fromEntries(
+    Object.entries({
+      ...filteredData.allLonghands,
+      ...filteredData.allShorthands,
+    }).map(([property, config]) => [property, config.status])
+  )
+);
+writeToFile("pseudo-elements.ts", "pseudoElements", pseudoElements);
+writeToFile("pseudo-classes.ts", "pseudoClasses", pseudoClasses);
+
+const typesFile = join(
+  process.cwd(),
+  "../css-engine/src/__generated__/types.ts"
+);
+mkdirSync(dirname(typesFile), { recursive: true });
+writeFileSync(typesFile, autogeneratedHint + getTypes(longhandPropertiesData));

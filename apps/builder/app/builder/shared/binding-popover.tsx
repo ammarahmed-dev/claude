@@ -1,0 +1,443 @@
+import {
+  type ButtonHTMLAttributes,
+  forwardRef,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { useStore } from "@nanostores/react";
+import {
+  DotIcon,
+  InfoCircleIcon,
+  PlusIcon,
+  TrashIcon,
+} from "@webstudio-is/icons";
+import {
+  PanelContent,
+  Box,
+  Button,
+  cssVar,
+  declareCssVar,
+  CssValueListArrowFocus,
+  CssValueListItem,
+  DialogTitleActions,
+  DialogClose,
+  DialogTitle,
+  FloatingPanel,
+  Flex,
+  Label,
+  ScrollArea,
+  ScrollAreaNative,
+  SmallIconButton,
+  Text,
+  Tooltip,
+  InputErrorsTooltip,
+  theme,
+} from "@webstudio-is/design-system";
+import { getExpressionIdentifiers } from "@webstudio-is/expression";
+import { getExpressionErrorMessages } from "@webstudio-is/project-build/runtime";
+import { $isDesignMode } from "~/shared/nano-states";
+import {
+  computeExpressionWithinScope,
+  encodeDataVariableName,
+} from "@webstudio-is/project-build/runtime";
+import {
+  ExpressionEditor,
+  formatValuePreview,
+  type EditorApi,
+} from "./expression-editor";
+import { normalizeEditorValue } from "~/shared/code-editor-base";
+import { useAsyncValue } from "~/shared/use-async-value";
+
+export const evaluateExpressionWithinScope = async (
+  expression: string,
+  scope: Record<string, unknown>
+) => computeExpressionWithinScope(expression, scope);
+
+const BindingPanel = ({
+  scope,
+  aliases,
+  valueError,
+  value,
+  onChange,
+  onSave,
+}: {
+  scope: Record<string, unknown>;
+  aliases: Map<string, string>;
+  valueError?: string;
+  value?: string;
+  onChange: () => void;
+  onSave: (value: string, invalid: boolean) => void;
+}) => {
+  const editorApiRef = useRef<undefined | EditorApi>(undefined);
+  const normalizedValue = normalizeEditorValue(value);
+  const [expression, setExpression] = useState(normalizedValue);
+  const usedIdentifiers = useMemo(
+    () => getExpressionIdentifiers(normalizedValue),
+    [normalizedValue]
+  );
+  const [errorsCount, setErrorsCount] = useState<number>(0);
+  const [touched, setTouched] = useState(false);
+  const scopeEntries = Object.entries(scope);
+
+  const validate = (expression: string) => {
+    const errors = getExpressionErrorMessages({
+      expression,
+      availableVariables: new Set(aliases.keys()),
+    });
+    setErrorsCount(errors.length);
+  };
+
+  const updateExpression = (newExpression: string) => {
+    setExpression(newExpression);
+    onChange();
+    validate(newExpression);
+  };
+
+  return (
+    <ScrollArea
+      css={{
+        display: "flex",
+        flexDirection: "column",
+        width: theme.spacing[30],
+      }}
+    >
+      <Box css={{ paddingBottom: theme.spacing[5] }}>
+        <PanelContent as={Flex} gap="1">
+          <Text variant="labels">Variables</Text>
+          <Tooltip
+            variant="wrapped"
+            content={
+              "Click on the available variables in this scope to insert them into the Expression Editor."
+            }
+          >
+            <InfoCircleIcon
+              color={cssVar("--foreground-secondary")}
+              tabIndex={0}
+            />
+          </Tooltip>
+        </PanelContent>
+        {scopeEntries.length === 0 && (
+          <Flex justify="center" align="center" css={{ py: theme.spacing[5] }}>
+            <Text variant="labels" align="center">
+              No variables available
+            </Text>
+          </Flex>
+        )}
+        <ScrollAreaNative css={{ maxHeight: theme.spacing[25] }}>
+          <CssValueListArrowFocus>
+            {scopeEntries.map(([identifier, value], index) => {
+              const name = aliases.get(identifier);
+              const label =
+                value === undefined
+                  ? name
+                  : `${name}: ${formatValuePreview(value)}`;
+              return (
+                <CssValueListItem
+                  key={identifier}
+                  id={identifier}
+                  index={index}
+                  label={<Label truncate>{label}</Label>}
+                  // mark all variables used in expression as selected
+                  active={usedIdentifiers.has(identifier)}
+                  // convert variable to expression
+                  onClick={() => {
+                    if (name) {
+                      const nameIdentifier = encodeDataVariableName(name);
+                      editorApiRef.current?.replaceSelection(nameIdentifier);
+                    }
+                  }}
+                  // expression editor blur is fired after pointer down even
+                  // preventing it allows to not trigger validation
+                  // and flickering error tooltip
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                  }}
+                />
+              );
+            })}
+          </CssValueListArrowFocus>
+        </ScrollAreaNative>
+      </Box>
+      <PanelContent as={Flex} gap="1">
+        <Text variant="labels">Expression editor</Text>
+        <Tooltip
+          variant="wrapped"
+          content={
+            <Text>
+              Use JavaScript syntax to access variables along with comparison
+              and arithmetic operators.
+              <br />
+              Use the dot notation to access nested object values:
+              <Text variant="mono">Variable.nested.value</Text>
+            </Text>
+          }
+        >
+          <InfoCircleIcon
+            color={cssVar("--foreground-secondary")}
+            tabIndex={0}
+          />
+        </Tooltip>
+      </PanelContent>
+      <PanelContent as={Box} css={{ pt: 0 }}>
+        <InputErrorsTooltip
+          errors={valueError === undefined ? undefined : [valueError]}
+        >
+          <ExpressionEditor
+            editorApiRef={editorApiRef}
+            scope={scope}
+            aliases={aliases}
+            color={
+              (touched && errorsCount > 0) || valueError !== undefined
+                ? "error"
+                : undefined
+            }
+            autoFocus={true}
+            value={expression}
+            onChange={(value) => {
+              updateExpression(value);
+              setTouched(false);
+            }}
+            onChangeComplete={() => {
+              onSave(expression, errorsCount > 0);
+              setTouched(true);
+            }}
+          />
+        </InputErrorsTooltip>
+      </PanelContent>
+    </ScrollArea>
+  );
+};
+
+const bindingOpacityProperty = declareCssVar("--binding-opacity");
+const dotDisplay = declareCssVar("--dot-display");
+const plusDisplay = declareCssVar("--plus-display");
+
+export const BindingControl = ({ children }: { children: ReactNode }) => {
+  return (
+    <Box
+      css={{
+        position: "relative",
+        "&:hover": { [bindingOpacityProperty]: 1 },
+      }}
+    >
+      {children}
+    </Box>
+  );
+};
+
+export type BindingVariant = "default" | "bound";
+
+const BindingButton = forwardRef<
+  HTMLButtonElement,
+  ButtonHTMLAttributes<HTMLButtonElement> & {
+    variant: BindingVariant;
+    error?: string;
+  }
+>(({ variant, error, ...props }, ref) => {
+  const expanded = props["aria-expanded"];
+  return (
+    // prevent giving content to tooltip when popover is open
+    // to avoid button remounting and popover flickering
+    // when switch between valid and error value
+    <Tooltip content={expanded ? undefined : error} delayDuration={0}>
+      <SmallIconButton
+        ref={ref}
+        data-variant={variant}
+        bleed={false}
+        css={{
+          // hide by default
+          opacity: cssVar(bindingOpacityProperty, "0"),
+          position: "absolute",
+          top: 0,
+          left: 0,
+          boxSizing: "border-box",
+          padding: 2,
+          // Because of the InputErrorsTooltip, we need to set zIndex to 1 (as InputErrorsTooltip needs an additional position relative wrapper)
+          zIndex: 1,
+          transform: "translate(-50%, -50%) scale(1)",
+          transition: "transform 60ms, opacity 0ms 60ms",
+          // https://easings.net/#easeInOutSine
+          transitionTimingFunction: "cubic-bezier(0.37, 0, 0.63, 1)",
+          [dotDisplay]: "block",
+          [plusDisplay]: "none",
+          "&[data-variant=bound]": {
+            opacity: 1,
+          },
+          "&:hover, &:focus-visible, &[aria-expanded=true]": {
+            // always show when interacted with
+            opacity: 1,
+            transform: `translate(-50%, -50%) scale(1.5)`,
+            [dotDisplay]: "none",
+            [plusDisplay]: "block",
+          },
+          "&:disabled": {
+            display: "none",
+          },
+        }}
+        {...props}
+        icon={
+          <Box
+            css={{
+              width: 12,
+              height: 12,
+              borderRadius: "50%",
+              backgroundColor: cssVar("--background-accent"),
+              color: cssVar("--foreground-on-accent"),
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              "&[data-variant=bound]": {
+                backgroundColor: cssVar("--background-accent"),
+              },
+              "&[data-variant=error]": {
+                backgroundColor: cssVar("--background-negative"),
+                color: cssVar("--foreground-on-negative"),
+              },
+            }}
+            data-variant={error ? "error" : variant}
+          >
+            <DotIcon
+              size={7}
+              style={{
+                display: cssVar(dotDisplay),
+                color: "currentColor",
+              }}
+            />
+            <PlusIcon
+              size={8}
+              style={{
+                display: cssVar(plusDisplay),
+                color: "currentColor",
+              }}
+            />
+          </Box>
+        }
+      />
+    </Tooltip>
+  );
+});
+BindingButton.displayName = "BindingButton";
+
+export const BindingPopover = ({
+  scope,
+  aliases,
+  variant,
+  validate,
+  value,
+  onChange,
+  onRemove,
+}: {
+  scope: Record<string, unknown>;
+  aliases: Map<string, string>;
+  variant: BindingVariant;
+  validate?: (value: unknown) => undefined | string;
+  value?: string;
+  onChange: (newValue: string) => void;
+  onRemove?: (evaluatedValue: unknown) => void;
+}) => {
+  const [isOpen, onOpenChange] = useState(false);
+  const hasUnsavedChange = useRef<boolean>(false);
+  const preventedClosing = useRef<boolean>(false);
+  const isDesignMode = useStore($isDesignMode);
+  const normalizedValue = normalizeEditorValue(value);
+  const evaluatedValue = useAsyncValue(
+    () => evaluateExpressionWithinScope(normalizedValue, scope),
+    [normalizedValue, scope],
+    undefined
+  );
+  const valueError = validate?.(evaluatedValue);
+  if (!isDesignMode) {
+    return;
+  }
+  return (
+    <FloatingPanel
+      placement="left-start"
+      anchor="trigger"
+      open={isOpen}
+      onOpenChange={(newOpen) => {
+        // handle special case for popover close
+        if (newOpen === false) {
+          // prevent saving when changes are not saved or validated
+          if (hasUnsavedChange.current) {
+            // schedule closing after saving
+            preventedClosing.current = true;
+            return;
+          }
+          preventedClosing.current = false;
+        }
+        onOpenChange(newOpen);
+      }}
+      title={
+        <DialogTitle
+          suffix={
+            <DialogTitleActions>
+              <Tooltip content="Reset binding" side="bottom">
+                {/* automatically close popover when remove expression */}
+                <DialogClose>
+                  <Button
+                    aria-label="Reset binding"
+                    prefix={<TrashIcon />}
+                    color="ghost"
+                    disabled={variant === "default" || onRemove === undefined}
+                    onClick={async (event) => {
+                      event.preventDefault();
+                      if (onRemove === undefined) {
+                        return;
+                      }
+                      // inline variables and close dialog
+                      const evaluatedValue =
+                        await evaluateExpressionWithinScope(
+                          normalizedValue,
+                          scope
+                        );
+
+                      onRemove(evaluatedValue);
+                      preventedClosing.current = false;
+                      hasUnsavedChange.current = false;
+                      onOpenChange(false);
+                    }}
+                  />
+                </DialogClose>
+              </Tooltip>
+              <DialogClose />
+            </DialogTitleActions>
+          }
+        >
+          Binding
+        </DialogTitle>
+      }
+      content={
+        <BindingPanel
+          scope={scope}
+          aliases={aliases}
+          valueError={valueError}
+          value={normalizedValue}
+          onChange={() => {
+            hasUnsavedChange.current = true;
+          }}
+          onSave={(value, invalid) => {
+            // avoid saving without changes
+            if (hasUnsavedChange.current === false) {
+              return;
+            }
+            // let user see the error and let close popover after
+            hasUnsavedChange.current = false;
+            if (invalid) {
+              return;
+            }
+            // save value and close popover
+            onChange(value);
+            if (preventedClosing.current) {
+              preventedClosing.current = false;
+              onOpenChange(false);
+            }
+          }}
+        />
+      }
+    >
+      <BindingButton variant={variant} error={valueError} />
+    </FloatingPanel>
+  );
+};

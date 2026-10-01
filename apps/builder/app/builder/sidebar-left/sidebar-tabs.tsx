@@ -1,0 +1,155 @@
+import {
+  Box,
+  IconButton,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Tooltip,
+  css,
+  cssVar,
+  styled,
+  theme,
+  useResize,
+  type CSS,
+} from "@webstudio-is/design-system";
+import {
+  forwardRef,
+  useEffect,
+  useRef,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
+
+export const SidebarTabs = styled(Tabs, {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  position: "relative",
+  boxSizing: "border-box",
+  flexGrow: 1,
+});
+
+export const SidebarButton = forwardRef<
+  HTMLButtonElement,
+  ComponentProps<typeof IconButton> & { label: string }
+>(({ label, ...props }, ref) => {
+  return (
+    <Tooltip side="right" content={label}>
+      <Box>
+        <IconButton
+          {...props}
+          ref={ref}
+          aria-label={label}
+          size="large"
+          css={{ m: theme.spacing[3] }}
+        />
+      </Box>
+    </Tooltip>
+  );
+});
+
+export const SidebarTabsTrigger = forwardRef<
+  HTMLButtonElement,
+  ComponentProps<typeof TabsTrigger> & { label: ReactNode | string }
+>(({ label, children, ...props }, ref) => {
+  const ariaLabel =
+    props["aria-label"] ?? (typeof label === "string" ? label : undefined);
+
+  return (
+    <Tooltip side="right" content={label}>
+      <Box>
+        <TabsTrigger {...props} ref={ref} aria-label={ariaLabel} asChild>
+          <IconButton size="large" css={{ m: theme.spacing[3] }}>
+            {children}
+          </IconButton>
+        </TabsTrigger>
+      </Box>
+    </Tooltip>
+  );
+});
+
+export const SidebarTabsList = styled(TabsList, {
+  boxSizing: "border-box",
+  flexShrink: 0,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  outline: "none",
+  flexGrow: 1,
+  backgroundColor: cssVar("--background-primary"),
+});
+
+const sidebarTabsContentStyle = css({
+  flexGrow: 1,
+  position: "absolute",
+  top: 0,
+  left: "100%",
+  height: "100%",
+  backgroundColor: cssVar("--background-primary"),
+  outline: "none",
+  // Drawing border this way to ensure content still has full width, avoid subpixels and give layout round numbers
+  "&::after": {
+    content: "''",
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: 1,
+    background: cssVar("--border-default"),
+  },
+  variants: {
+    resizable: {
+      true: {
+        overflow: "auto",
+        resize: "horizontal",
+      },
+    },
+  },
+});
+
+type SidebarTabsContentProps = Omit<
+  ComponentProps<typeof TabsContent>,
+  "onResize"
+> & {
+  css?: CSS;
+  resizable?: boolean;
+  onResize?: (size: { width: number; height: number }) => void;
+};
+
+export const SidebarTabsContent = ({
+  resizable,
+  css,
+  onResize,
+  ...props
+}: SidebarTabsContentProps) => {
+  const onResizeRef = useRef(onResize);
+  onResizeRef.current = onResize;
+
+  const [element, setElement] = useResize({
+    onResizeEnd: (entries) => {
+      if (entries[0] && onResizeRef.current) {
+        onResizeRef.current({
+          width: entries[0].contentRect.width,
+          height: entries[0].contentRect.height,
+        });
+      }
+      element?.style.removeProperty("width");
+    },
+  });
+
+  useEffect(() => {
+    if (element && onResizeRef.current) {
+      const rect = element.getBoundingClientRect();
+      onResizeRef.current({ width: rect.width, height: rect.height });
+    }
+  }, [element]);
+
+  return (
+    <TabsContent
+      {...props}
+      ref={resizable ? setElement : undefined}
+      className={sidebarTabsContentStyle({ css, resizable })}
+    />
+  );
+};

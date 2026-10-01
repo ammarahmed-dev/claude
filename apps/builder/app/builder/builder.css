@@ -1,0 +1,30 @@
+html {
+  overflow: hidden;
+}
+
+body {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  -webkit-font-smoothing: antialiased;
+  background-color: var(--background-primary);
+}
+
+[data-radix-scroll-area-viewport] {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+[data-radix-scroll-area-viewport]::-webkit-scrollbar {
+  display: none;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(
+      in oklab,
+      var(--foreground-secondary) 60%,
+      transparent
+    )
+    transparent;
+}

@@ -1,0 +1,106 @@
+import { arrayBuffer } from "node:stream/consumers";
+import type { SignatureV4 } from "@smithy/signature-v4";
+import {
+  applyAssetDataOverride,
+  type AssetData,
+  type AssetDataOverride,
+  getAssetData,
+} from "../../utils/get-asset-data";
+import { createSizeLimiter } from "../../utils/size-limiter";
+import { getMimeTypeByFilename } from "@webstudio-is/sdk";
+import { createS3ObjectUrl } from "./object-url";
+import { createS3FetchHeaders, signS3Request } from "./request-headers";
+import type { AssetInfoFallback } from "../../client";
+
+export const uploadToS3 = async ({
+  signer,
+  name,
+  type,
+  data: dataStream,
+  maxSize,
+  endpoint,
+  bucket,
+  acl,
+  assetInfoFallback,
+  assetDataOverride,
+}: {
+  signer: SignatureV4;
+  name: string;
+  type: string;
+  data: AsyncIterable<Uint8Array>;
+  maxSize: number;
+  endpoint: string;
+  bucket: string;
+  acl?: string;
+  assetInfoFallback: AssetInfoFallback | undefined;
+  assetDataOverride?: AssetDataOverride;
+}): Promise<AssetData> => {
+  const limitSize = createSizeLimiter(maxSize, name);
+
+  // @todo this is going to put the entire file in memory
+  // this has to be a stream that goes directly to s3
+  // Size check has to happen as you stream and interrupted when size is too big
+  // Also check if S3 client has an option to check the size limit
+  const data = await arrayBuffer(limitSize(dataStream));
+
+  const url = createS3ObjectUrl({
+    endpoint,
+    bucket,
+    key: name,
+  });
+
+  // Use proper MIME type based on file extension instead of generic type category
+  const contentType = getMimeTypeByFilename(name);
+
+  const assetData = applyAssetDataOverride(
+    type.startsWith("video") && assetInfoFallback !== undefined
+      ? {
+          size: data.byteLength,
+          format: assetInfoFallback.format,
+          meta: {
+            width: assetInfoFallback.width,
+            height: assetInfoFallback.height,
+          },
+        }
+      : await getAssetData({
+          type: type.startsWith("image")
+            ? "image"
+            : type === "font"
+              ? "font"
+              : "file",
+          size: data.byteLength,
+          data: new Uint8Array(data),
+          name,
+        }),
+    assetDataOverride
+  );
+
+  const s3Request = await signS3Request({
+    signer,
+    url,
+    method: "PUT",
+    headers: {
+      "Content-Type": contentType,
+      "Content-Length": `${data.byteLength}`,
+      "Cache-Control": "public, max-age=31536004,immutable",
+      "x-amz-content-sha256": "UNSIGNED-PAYLOAD",
+      // encodeURIComponent is needed to support special characters like Cyrillic
+      "x-amz-meta-filename": encodeURIComponent(name),
+      // when no ACL passed we do not default since some providers do not support it
+      ...(acl ? { "x-amz-acl": acl } : {}),
+    },
+    body: data,
+  });
+
+  const response = await fetch(url, {
+    method: s3Request.method,
+    headers: createS3FetchHeaders(s3Request.headers),
+    body: data,
+  });
+
+  if (response.status !== 200) {
+    throw Error(`Cannot upload file ${name}`);
+  }
+
+  return assetData;
+};

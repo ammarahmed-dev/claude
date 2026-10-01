@@ -1,0 +1,59 @@
+import { useState } from "react";
+import { ShieldIcon } from "@webstudio-is/icons";
+import {
+  PanelContent,
+  Popover,
+  cssVar,
+  PopoverTrigger,
+  PopoverContent,
+  theme,
+  IconButton,
+  Button,
+  Text,
+  Flex,
+} from "@webstudio-is/design-system";
+import { builderApi } from "~/shared/builder-api";
+
+export const SafeModeButton = () => {
+  const [open, setOpen] = useState(false);
+
+  if (!builderApi.isSafeMode()) {
+    return;
+  }
+
+  const handleExitSafeMode = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("safemode");
+    window.location.href = url.href;
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <IconButton type="button" aria-label="Safe mode active">
+          <ShieldIcon stroke={cssVar("--foreground-negative")} />
+        </IconButton>
+      </PopoverTrigger>
+      <PopoverContent>
+        <PanelContent
+          as={Flex}
+          direction="column"
+          gap="2"
+          css={{
+            width: theme.spacing[30],
+          }}
+        >
+          <Text variant="regularBold">Safe mode active</Text>
+          <Text>
+            Safe mode prevents all external JavaScript from executing. HTML
+            embeds will not run scripts even if "Run scripts on canvas" is
+            enabled.
+          </Text>
+          <Button color="destructive" onClick={handleExitSafeMode}>
+            Exit safe mode
+          </Button>
+        </PanelContent>
+      </PopoverContent>
+    </Popover>
+  );
+};

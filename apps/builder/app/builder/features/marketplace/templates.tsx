@@ -1,0 +1,290 @@
+import { findClosestInsertable } from "~/shared/instance-utils/insert";
+import { insertWebstudioFragmentAt } from "~/shared/instance-utils/insert";
+import {
+  detectPageTokenConflicts,
+  extractWebstudioFragment,
+} from "@webstudio-is/project-build/runtime";
+import { executeRuntimeMutation } from "~/shared/instance-utils/data";
+import { useMemo } from "react";
+import {
+  PanelContent,
+  Button,
+  Flex,
+  List,
+  ListItem,
+  ScrollArea,
+  Separator,
+  Link,
+  Tooltip,
+} from "@webstudio-is/design-system";
+import { ChevronLeftIcon, ExternalLinkIcon } from "@webstudio-is/icons";
+import {
+  elementComponent,
+  getAllPages,
+  type Instance,
+  ROOT_FOLDER_ID,
+  ROOT_INSTANCE_ID,
+  type Asset,
+  type Page,
+  type WebstudioData,
+} from "@webstudio-is/sdk";
+import type { MarketplaceProduct } from "@webstudio-is/project-build";
+import { mapGroupBy } from "~/shared/shim";
+import { CollapsibleSection } from "~/builder/shared/collapsible-section";
+import { builderUrl } from "~/shared/router-utils";
+import { getWebstudioData } from "~/shared/instance-utils/data";
+import { $project } from "~/shared/sync/data-stores";
+import { Card } from "./card";
+import type { MarketplaceOverviewItem } from "~/shared/marketplace/types";
+import { selectPage } from "~/shared/nano-states";
+import {
+  resolveFragmentTokenConflicts,
+  resolveTokenConflicts,
+} from "~/shared/resolve-token-conflicts";
+import { resolveRootStyleConflicts } from "~/shared/resolve-root-style-conflicts";
+
+const isBody = (instance: Instance) =>
+  instance.component === "Body" ||
+  (instance.component === elementComponent && instance.tag === "body");
+
+/**
+ * Insert page as a template.
+ * - Currently only supports inserting everything from the body
+ * - Could be extended to support children of some other instance e.g. Marketplace Item
+ */
+const insertSection = async ({
+  data,
+  instanceId,
+}: {
+  data: WebstudioData;
+  instanceId: string;
+}) => {
+  const fragment = extractWebstudioFragment(data, instanceId);
+  const body = fragment.instances.find(isBody);
+  // remove body and use its children as root insrances
+  if (body) {
+    fragment.instances = fragment.instances.filter(
+      (instance) => !isBody(instance)
+    );
+    fragment.children = body.children;
+  }
+  const insertable = findClosestInsertable(fragment);
+  if (insertable) {
+    // numeric position means the instance already
+    // insertd after or even into ancestor
+    if (insertable.position === "end") {
+      insertable.position = "after";
+    }
+    const conflictResolution = await resolveFragmentTokenConflicts(fragment);
+    if (conflictResolution === "cancel") {
+      return;
+    }
+    await insertWebstudioFragmentAt(fragment, insertable, conflictResolution);
+  }
+};
+
+const insertPage = async ({
+  data: sourceData,
+  pageId,
+}: {
+  data: WebstudioData;
+  pageId: Page["id"];
+}) => {
+  const tokenTargetData = getWebstudioData();
+  const conflicts = detectPageTokenConflicts({
+    sourceData,
+    targetData: tokenTargetData,
+    pageId,
+  });
+  const conflictResolution = await resolveTokenConflicts(conflicts);
+  if (conflictResolution === "cancel") {
+    return;
+  }
+  const rootStyleTargetData = getWebstudioData();
+  const rootFragment = extractWebstudioFragment(sourceData, ROOT_INSTANCE_ID);
+  const rootStyleConflictResolution = await resolveRootStyleConflicts({
+    fragment: rootFragment,
+    targetData: rootStyleTargetData,
+  });
+  if (rootStyleConflictResolution === "cancel") {
+    return;
+  }
+  const projectId = $project.get()?.id;
+  if (projectId === undefined) {
+    return;
+  }
+  const result = executeRuntimeMutation({
+    id: "pages.copy",
+    input: {
+      sourceData,
+      pageId,
+      parentFolderId: ROOT_FOLDER_ID,
+      projectId,
+      conflictResolution,
+      rootStyleConflictResolution,
+    },
+  });
+  const newPageId = result?.result.pageId;
+  if (newPageId) {
+    selectPage(newPageId);
+  }
+};
+
+type TemplateData = {
+  title?: string;
+  thumbnailAsset?: Asset;
+  pageId: string;
+  rootInstanceId: string;
+};
+
+const getTemplatesDataByCategory = (
+  data?: WebstudioData
+): Map<string, Array<TemplateData>> => {
+  if (data === undefined) {
+    return new Map();
+  }
+  const pages = getAllPages(data.pages)
+    .filter((page) => page.marketplace?.include)
+    .map((page) => {
+      // category can be empty string
+      const category = page.marketplace?.category || "Pages";
+      const thumbnailAsset =
+        data.assets.get(page.marketplace?.thumbnailAssetId ?? "") ??
+        data.assets.get(page.meta.socialImageAssetId ?? "");
+      return {
+        category,
+        title: page.name,
+        thumbnailAsset,
+        pageId: page.id,
+        rootInstanceId: page.rootInstanceId,
+      };
+    });
+  return mapGroupBy(pages, (page) => page.category);
+};
+
+export const Templates = ({
+  name,
+  projectId,
+  productCategory,
+  authorizationToken,
+  data,
+  onOpenChange,
+}: {
+  name: string;
+  projectId: string;
+  productCategory: MarketplaceProduct["category"];
+  authorizationToken: MarketplaceOverviewItem["authorizationToken"];
+  data: WebstudioData;
+  onOpenChange: (isOpen: boolean) => void;
+}) => {
+  const templatesDataByCategory = useMemo(
+    () => getTemplatesDataByCategory(data),
+    [data]
+  );
+
+  if (templatesDataByCategory === undefined || data === undefined) {
+    return;
+  }
+
+  const hasAuthToken = authorizationToken != null;
+
+  return (
+    <Flex direction="column" css={{ height: "100%" }}>
+      <PanelContent
+        as={Flex}
+        align="center"
+        shrink="false"
+        justify="between"
+        gap="3"
+      >
+        <Button
+          prefix={<ChevronLeftIcon />}
+          onClick={() => {
+            onOpenChange(false);
+          }}
+        >
+          {name}
+        </Button>
+        <Tooltip
+          content={
+            hasAuthToken
+              ? undefined
+              : 'The project does not have a shared link with "View" permission.'
+          }
+        >
+          <Link
+            underline="none"
+            href={
+              hasAuthToken
+                ? builderUrl({
+                    projectId: projectId,
+                    origin: location.origin,
+                    authToken: authorizationToken,
+                  })
+                : undefined
+            }
+            target="_blank"
+            aria-label="Open project in new tab"
+            aria-disabled={hasAuthToken ? undefined : "true"}
+          >
+            <ExternalLinkIcon />
+          </Link>
+        </Tooltip>
+      </PanelContent>
+      <Separator />
+      <ScrollArea>
+        {Array.from(templatesDataByCategory.keys())
+          .sort()
+          .map((category) => {
+            return (
+              <CollapsibleSection label={category} key={category} fullWidth>
+                <List asChild>
+                  <Flex direction="column">
+                    {templatesDataByCategory
+                      .get(category)
+                      ?.map((templateData, index) => {
+                        return (
+                          <ListItem
+                            asChild
+                            key={templateData.rootInstanceId}
+                            index={index}
+                            onSelect={() => {
+                              if (productCategory === "sectionTemplates") {
+                                insertSection({
+                                  data,
+                                  instanceId: templateData.rootInstanceId,
+                                }).catch(() => {
+                                  // User cancelled conflict dialog
+                                });
+                              }
+                              if (
+                                productCategory === "pageTemplates" ||
+                                productCategory === "integrationTemplates"
+                              ) {
+                                insertPage({
+                                  data,
+                                  pageId: templateData.pageId,
+                                }).catch(() => {
+                                  // User cancelled conflict dialog
+                                });
+                              }
+                            }}
+                          >
+                            <Card
+                              title={templateData.title}
+                              image={templateData.thumbnailAsset}
+                            />
+                          </ListItem>
+                        );
+                      })}
+                  </Flex>
+                </List>
+              </CollapsibleSection>
+            );
+          })}
+      </ScrollArea>
+    </Flex>
+  );
+};
+
+undefined;

@@ -1,0 +1,85 @@
+import {
+  PanelContent,
+  cssVar,
+  IconButton,
+  Text,
+  Grid,
+  theme,
+  Flex,
+} from "@webstudio-is/design-system";
+import {
+  AspectRatioIcon,
+  TrashIcon,
+  DimensionsIcon,
+  ImageIcon,
+} from "@webstudio-is/icons";
+import type { ImageAsset } from "@webstudio-is/sdk";
+import { formatAssetName } from "@webstudio-is/project-build/runtime";
+import { getFormattedAspectRatio } from "~/builder/shared/asset-manager";
+
+type ImageInfoProps = {
+  asset: ImageAsset;
+  onDelete: () => void;
+  disabled?: boolean;
+};
+
+export const ImageInfo = ({
+  asset,
+  onDelete,
+  disabled = false,
+}: ImageInfoProps) => {
+  return (
+    <Grid gap={1} flow={"column"} align={"center"} justify={"between"}>
+      <Grid
+        gap={2}
+        flow={"column"}
+        align={"center"}
+        justify={"start"}
+        css={{
+          borderRadius: theme.borderRadius[4],
+          border: `1px solid ${cssVar("--border-default")}`,
+          backgroundColor: cssVar("--background-primary"),
+          padding: theme.spacing[4],
+          justifySelf: "start",
+          pr: theme.spacing[5],
+        }}
+      >
+        <PanelContent
+          as={Grid}
+          columns={1}
+          css={{ width: theme.spacing[34] }}
+          gap={2}
+          align={"center"}
+        >
+          <Grid
+            gap={1}
+            align="center"
+            css={{ gridTemplateColumns: "max-content 1fr" }}
+          >
+            <ImageIcon />
+            <Text truncate variant={"labels"}>
+              {formatAssetName(asset)}
+            </Text>
+          </Grid>
+          <Grid columns={2} gap={1} align={"center"}>
+            <Flex gap={1}>
+              <DimensionsIcon />
+              <Text variant={"labels"}>
+                {asset.meta.width} x {asset.meta.height} Px
+              </Text>
+            </Flex>
+            <Flex gap={1}>
+              <AspectRatioIcon />
+              <Text variant={"labels"}>
+                {getFormattedAspectRatio(asset.meta)}
+              </Text>
+            </Flex>
+          </Grid>
+        </PanelContent>
+      </Grid>
+      <IconButton onClick={onDelete} disabled={disabled}>
+        <TrashIcon />
+      </IconButton>
+    </Grid>
+  );
+};

@@ -1,0 +1,38 @@
+<svg
+  width="16"
+  height="16"
+  viewBox="0 0 16 16"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <path
+    d="M9.32031 6H1.93164"
+    stroke="currentColor"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M14 10.5H6.5"
+    stroke="currentColor"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <rect
+    x="1.93164"
+    y="8.53418"
+    width="4"
+    height="4"
+    rx="2"
+    fill="none"
+    stroke="currentColor"
+  />
+  <rect
+    x="10.0684"
+    y="4"
+    width="4"
+    height="4"
+    rx="2"
+    fill="none"
+    stroke="currentColor"
+  />
+</svg>

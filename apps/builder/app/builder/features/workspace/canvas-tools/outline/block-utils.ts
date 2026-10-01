@@ -1,0 +1,259 @@
+import {
+  getHtmlTagFromInstance,
+  getContentBlockTemplateName,
+  isContentBlockMdxTemplateInsertable,
+  type Instance,
+  type Props,
+  type WebstudioFragment,
+  type WsComponentMeta,
+} from "@webstudio-is/sdk";
+import { findTextEditorTarget } from "@webstudio-is/project-build/runtime";
+import {
+  executeRuntimeMutationAsync,
+  getWebstudioData,
+} from "~/shared/instance-utils/data";
+import { insertWebstudioFragmentAt } from "~/shared/instance-utils/insert";
+import {
+  detectFragmentTokenConflicts,
+  extractWebstudioFragment,
+} from "@webstudio-is/project-build/runtime";
+import {
+  $selectedInstanceSelector,
+  selectInstance,
+} from "~/shared/nano-states";
+import { resolveTokenConflicts } from "~/shared/resolve-token-conflicts";
+import {
+  $registeredComponentMetas,
+  $isContentMode,
+  $textEditingInstanceSelector,
+} from "~/shared/nano-states";
+import { $instances } from "~/shared/sync/data-stores";
+import { $project } from "~/shared/sync/data-stores";
+import type {
+  DroppableTarget,
+  InstanceSelector,
+} from "@webstudio-is/project-build/runtime";
+import {
+  findBlockContentSelector,
+  getBlockTemplateInsertionIndex,
+} from "@webstudio-is/project-build/runtime";
+import { recordExternalContentTemplateInsertion } from "~/shared/external-content-mutations";
+
+const getTemplateTokenConflicts = ({
+  fragment,
+  targetData,
+  contentMode,
+  detect = detectFragmentTokenConflicts,
+}: {
+  fragment: WebstudioFragment;
+  targetData: ReturnType<typeof getWebstudioData>;
+  contentMode: boolean;
+  detect?: typeof detectFragmentTokenConflicts;
+}) => {
+  if (contentMode) {
+    return [];
+  }
+  return detect({ fragment, targetData });
+};
+
+export const filterInsertableContentBlockTemplates = ({
+  templates,
+  props,
+  metas,
+}: {
+  templates: [instance: Instance, selector: InstanceSelector][];
+  props: Props;
+  metas: Map<Instance["component"], WsComponentMeta>;
+}) =>
+  templates.filter(([instance]) =>
+    isContentBlockMdxTemplateInsertable({
+      component: instance.component,
+      tag: getHtmlTagFromInstance({ instance, props, metas }),
+    })
+  );
+
+export const __testing__ = {
+  getTemplateTokenConflicts,
+};
+
+export const insertListItemAt = async (listItemSelector: InstanceSelector) => {
+  const project = $project.get();
+  const instances = $instances.get();
+  if (project === undefined) {
+    return;
+  }
+
+  const parentSelector = listItemSelector.slice(1);
+
+  const parentInstance = instances.get(parentSelector[0]);
+
+  if (parentInstance === undefined) {
+    return;
+  }
+
+  const position =
+    1 +
+    parentInstance.children.findIndex(
+      (child) => child.type === "id" && child.value === listItemSelector[0]
+    );
+
+  if (position === 0) {
+    return;
+  }
+
+  const target: DroppableTarget = {
+    parentSelector,
+    position,
+  };
+
+  const fragment = extractWebstudioFragment(
+    getWebstudioData(),
+    listItemSelector[0]
+  );
+
+  const [listItemInstance] = fragment.instances;
+  if (listItemInstance === undefined) {
+    return;
+  }
+  fragment.instances = [{ ...listItemInstance, children: [] }];
+  fragment.children = [{ type: "id", value: listItemInstance.id }];
+
+  const result = await executeRuntimeMutationAsync({
+    id: "instances.insertFragment",
+    input: {
+      parentInstanceId: target.parentSelector[0],
+      fragment,
+      insertIndex: target.position === "end" ? undefined : target.position,
+    },
+  });
+  const newRootInstanceId = result?.result.rootInstanceIds[0];
+  if (newRootInstanceId === undefined) {
+    return;
+  }
+  const selectedInstanceSelector = [
+    newRootInstanceId,
+    ...target.parentSelector,
+  ];
+
+  $textEditingInstanceSelector.set({
+    selector: selectedInstanceSelector,
+    reason: "new",
+  });
+
+  selectInstance(selectedInstanceSelector);
+};
+
+export const insertTemplateAt = async ({
+  templateSelector,
+  anchor,
+  insertBefore,
+  replaceAnchor = false,
+}: {
+  templateSelector: InstanceSelector;
+  anchor: InstanceSelector;
+  insertBefore: boolean;
+  replaceAnchor?: boolean;
+}) => {
+  const instances = $instances.get();
+  const template = instances.get(templateSelector[0]);
+  if (template === undefined) {
+    return false;
+  }
+
+  const fragment = extractWebstudioFragment(
+    getWebstudioData(),
+    templateSelector[0]
+  );
+
+  const parentSelector = findBlockContentSelector({ anchor, instances });
+
+  if (parentSelector === undefined) {
+    return false;
+  }
+
+  const position = getBlockTemplateInsertionIndex({
+    anchor,
+    instances,
+    insertBefore,
+  });
+
+  if (position === undefined) {
+    return false;
+  }
+
+  const target: DroppableTarget = {
+    parentSelector,
+    position,
+  };
+
+  try {
+    const contentMode = $isContentMode.get();
+    const conflicts = getTemplateTokenConflicts({
+      fragment,
+      targetData: getWebstudioData(),
+      contentMode,
+    });
+    const conflictResolution =
+      conflicts.length === 0
+        ? "theirs"
+        : await resolveTokenConflicts(conflicts);
+    if (conflictResolution === "cancel") {
+      return false;
+    }
+
+    const didInsert = insertWebstudioFragmentAt(
+      fragment,
+      target,
+      conflictResolution,
+      {
+        contentMode,
+        replaceInstanceSelector: replaceAnchor ? anchor : undefined,
+      }
+    );
+    if (didInsert === false) {
+      return false;
+    }
+    const selectedInstanceSelector = $selectedInstanceSelector.get();
+    if (selectedInstanceSelector === undefined) {
+      return false;
+    }
+    const data = getWebstudioData();
+    const metas = $registeredComponentMetas.get();
+    const pristineFragment = structuredClone(
+      extractWebstudioFragment(data, selectedInstanceSelector[0])
+    );
+    const pristineProps = new Map(
+      pristineFragment.props.map((prop) => [prop.id, prop])
+    );
+    recordExternalContentTemplateInsertion({
+      instanceSelector: selectedInstanceSelector,
+      insertion: {
+        templateName: getContentBlockTemplateName(template),
+        pristineFragment,
+        htmlTags: pristineFragment.instances.flatMap((instance) => {
+          const tag = getHtmlTagFromInstance({
+            instance,
+            metas,
+            props: pristineProps,
+          });
+          return tag === undefined ? [] : [{ instanceId: instance.id, tag }];
+        }),
+      },
+    });
+    const editableInstanceSelector = findTextEditorTarget({
+      instanceSelector: selectedInstanceSelector,
+      instances: data.instances,
+      props: data.props,
+      metas,
+    });
+    $textEditingInstanceSelector.set(
+      editableInstanceSelector
+        ? { selector: editableInstanceSelector, reason: "new" }
+        : undefined
+    );
+    return true;
+  } catch {
+    // User cancelled the operation
+    return false;
+  }
+};

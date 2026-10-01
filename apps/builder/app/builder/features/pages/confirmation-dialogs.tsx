@@ -1,0 +1,153 @@
+import {
+  PanelContent,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  DialogClose,
+  Flex,
+  Text,
+  Button,
+} from "@webstudio-is/design-system";
+import type { Page, Folder, PageTemplate } from "@webstudio-is/sdk";
+import { getPageDisplayName } from "./page-utils";
+
+type DeletePageConfirmationDialogProps = {
+  onClose: () => void;
+  onConfirm: () => void;
+  page: Page;
+};
+
+export const DeletePageConfirmationDialog = ({
+  onClose,
+  onConfirm,
+  page,
+}: DeletePageConfirmationDialogProps) => {
+  return (
+    <Dialog
+      open
+      onOpenChange={(isOpen) => {
+        if (isOpen === false) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent>
+        <DialogTitle>Delete page</DialogTitle>
+        <PanelContent as={Flex} gap="3" direction="column">
+          <Text>{`Are you sure you want to delete "${getPageDisplayName(page)}"?`}</Text>
+          <Text>
+            You can undo it even if you delete the page as long as you don't
+            reload.
+          </Text>
+        </PanelContent>
+        <DialogActions>
+          <Button
+            autoFocus
+            color="destructive"
+            onClick={() => {
+              onConfirm();
+            }}
+          >
+            Delete Page
+          </Button>
+          <DialogClose>
+            <Button color="ghost">Cancel</Button>
+          </DialogClose>
+        </DialogActions>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+type DeleteFolderConfirmationDialogProps = {
+  onClose: () => void;
+  onConfirm: () => void;
+  folder: Folder;
+};
+
+export const DeleteFolderConfirmationDialog = ({
+  onClose,
+  onConfirm,
+  folder,
+}: DeleteFolderConfirmationDialogProps) => {
+  return (
+    <Dialog
+      open
+      onOpenChange={(isOpen) => {
+        if (isOpen === false) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent>
+        <DialogTitle>Delete confirmation</DialogTitle>
+        <PanelContent as={Flex} gap="3" direction="column">
+          <Text>{`Delete folder "${folder.name}" including all of its pages?`}</Text>
+        </PanelContent>
+        <DialogActions>
+          <Button
+            autoFocus
+            color="destructive"
+            onClick={() => {
+              onConfirm();
+            }}
+          >
+            Delete
+          </Button>
+          <DialogClose>
+            <Button color="ghost">Cancel</Button>
+          </DialogClose>
+        </DialogActions>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+type DeleteTemplateConfirmationDialogProps = {
+  onClose: () => void;
+  onConfirm: () => void;
+  template: PageTemplate;
+};
+
+export const DeleteTemplateConfirmationDialog = ({
+  onClose,
+  onConfirm,
+  template,
+}: DeleteTemplateConfirmationDialogProps) => {
+  return (
+    <Dialog
+      open
+      onOpenChange={(isOpen) => {
+        if (isOpen === false) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent>
+        <DialogTitle>Delete template</DialogTitle>
+        <PanelContent as={Flex} gap="3" direction="column">
+          <Text>{`Are you sure you want to delete the template "${template.name}"?`}</Text>
+          <Text>
+            You can undo it even if you delete the template as long as you don't
+            reload.
+          </Text>
+        </PanelContent>
+        <DialogActions>
+          <Button
+            autoFocus
+            color="destructive"
+            onClick={() => {
+              onConfirm();
+            }}
+          >
+            Delete Template
+          </Button>
+          <DialogClose>
+            <Button color="ghost">Cancel</Button>
+          </DialogClose>
+        </DialogActions>
+      </DialogContent>
+    </Dialog>
+  );
+};

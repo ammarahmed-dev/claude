@@ -1,0 +1,160 @@
+import { useMemo, type ReactNode } from "react";
+import {
+  css,
+  cssVar,
+  declareCssVar,
+  keyframes,
+  type Rect,
+} from "@webstudio-is/design-system";
+import { canvasToolColors } from "../color-recipes";
+
+const angleVar = declareCssVar("--outline-angle");
+
+// Won't work in current FF/Safari, but outline will still work, just no animation.
+const propertyStyle = (
+  <style>{`
+    @property ${angleVar} {
+      syntax: '<angle>';
+      initial-value: 0deg;
+      inherits: false;
+    }
+  `}</style>
+);
+
+const angleKeyframes = keyframes({
+  to: {
+    [angleVar]: "360deg",
+  },
+});
+
+const baseOutlineStyle = css({
+  borderWidth: 1,
+  variants: {
+    variant: {
+      default: {
+        borderStyle: "solid",
+        borderColor: canvasToolColors.selectionTranslucent,
+      },
+      collaboration: {
+        [angleVar]: `0deg`,
+        borderStyle: "solid",
+        borderImage: `conic-gradient(from ${cssVar(
+          angleVar
+        )}, #39FBBB 0%, #4A4EFA 12.5%, #E63CFE 25%, #FFAE3C 37.5%, #39FBBB 50%, #4A4EFA 62.5%, #E63CFE 75%, #FFAE3C 87.5%) 1`,
+        animation: `2s ${angleKeyframes} linear infinite`,
+      },
+      slot: {
+        borderStyle: "solid",
+        borderColor: canvasToolColors.slot,
+      },
+    },
+
+    isLeftClamped: {
+      true: {
+        borderLeftWidth: 0,
+      },
+    },
+    isRightClamped: {
+      true: {
+        borderRightWidth: 0,
+      },
+    },
+    isBottomClamped: {
+      true: {
+        borderBottomWidth: 0,
+      },
+    },
+    isTopClamped: {
+      true: {
+        borderTopWidth: 0,
+      },
+    },
+  },
+  defaultVariants: { variant: "default" },
+});
+
+const baseStyle = css({
+  boxSizing: "border-box",
+  position: "absolute",
+  display: "grid",
+  pointerEvents: "none",
+  top: 0,
+  left: 0,
+});
+
+const useDynamicStyle = (rect?: Rect) => {
+  return useMemo(() => {
+    if (rect === undefined) {
+      return;
+    }
+    return {
+      transform: `translate3d(${rect.left}px, ${rect.top}px, 0)`,
+      width: rect.width,
+      height: rect.height,
+    };
+  }, [rect]);
+};
+
+type OutlineProps = {
+  children?: ReactNode;
+  rect: Rect;
+  clampingRect: Rect;
+  variant?: "default" | "collaboration" | "slot";
+  color?: string;
+};
+
+export const Outline = ({
+  children,
+  rect,
+  clampingRect,
+  variant,
+  color,
+}: OutlineProps) => {
+  const outlineRect = {
+    top: Math.max(rect.top, clampingRect.top),
+    height:
+      Math.min(rect.top + rect.height, clampingRect.top + clampingRect.height) -
+      Math.max(rect.top, clampingRect.top),
+
+    left: Math.max(rect.left, clampingRect.left),
+    width:
+      Math.min(rect.left + rect.width, clampingRect.left + clampingRect.width) -
+      Math.max(rect.left, clampingRect.left),
+  };
+  const dynamicStyle = useDynamicStyle(outlineRect);
+  const style =
+    color === undefined
+      ? dynamicStyle
+      : { ...dynamicStyle, borderColor: color };
+  if (outlineRect.width <= 0 || outlineRect.height <= 0) {
+    return;
+  }
+
+  const isLeftClamped = rect.left < outlineRect.left;
+  const isTopClamped = rect.top < outlineRect.top;
+
+  const isRightClamped =
+    Math.round(rect.left + rect.width) > Math.round(clampingRect.width);
+
+  const isBottomClamped =
+    Math.round(rect.top + rect.height) > Math.round(clampingRect.height);
+
+  return (
+    <>
+      {propertyStyle}
+      <div
+        data-ws-outline={variant ?? "default"}
+        className={`${baseStyle()} ${baseOutlineStyle({
+          variant,
+          isLeftClamped,
+          isRightClamped,
+          isBottomClamped,
+          isTopClamped,
+        })}`}
+        style={style}
+      >
+        {children}
+      </div>
+    </>
+  );
+};

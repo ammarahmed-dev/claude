@@ -1,0 +1,1132 @@
+import {
+  afterEach,
+  describe,
+  expect,
+  test,
+  beforeEach,
+  vi,
+  type Mock,
+} from "vitest";
+
+import {
+  assetsUploadsApiUrl,
+  createResourceFetchBatchProvider,
+  getAssetApiUrl,
+  getAssetContentApiUrl,
+  getAssetFolderApiUrl,
+  getAssetUploadApiUrl,
+  getResourceCacheKey,
+  isLocalResource,
+  loadResource,
+  loadResources,
+  type ResourceRequestGraph,
+} from "./resource-loader";
+import type { ResourceRequest } from "./schema/resources";
+
+test("resolves request resources after their dependency documents", async () => {
+  const requestedUrls: string[] = [];
+  const fetch = vi.fn<typeof globalThis.fetch>(async (input) => {
+    const url = String(input);
+    requestedUrls.push(url);
+    if (url.endsWith("/posts")) {
+      return Response.json({ id: "author-id" });
+    }
+    return Response.json({ name: "Ada" });
+  });
+  const graph: ResourceRequestGraph = {
+    resources: [
+      {
+        id: "posts",
+        outputName: "Posts",
+        dependencies: [],
+        createRequest: () => ({
+          name: "Posts",
+          method: "get",
+          url: "https://example.com/posts",
+          searchParams: [],
+          headers: [],
+        }),
+      },
+      {
+        id: "author",
+        outputName: "Author",
+        dependencies: ["posts"],
+        createRequest: (documents) => ({
+          name: "Author",
+          method: "get",
+          url: `https://example.com/authors/${
+            (documents.get("posts") as { data: { id: string } }).data.id
+          }`,
+          searchParams: [],
+          headers: [],
+        }),
+      },
+      {
+        id: "unused",
+        outputName: "Unused",
+        dependencies: [],
+        createRequest: () => ({
+          name: "Unused",
+          method: "get",
+          url: "https://example.com/unused",
+          searchParams: [],
+          headers: [],
+        }),
+      },
+    ],
+    rootIds: ["author"],
+  };
+
+  await expect(loadResources(fetch, graph)).resolves.toEqual({
+    Author: {
+      data: { name: "Ada" },
+      ok: true,
+      status: 200,
+      statusText: "",
+    },
+  });
+  expect(requestedUrls).toEqual([
+    "https://example.com/posts",
+    "https://example.com/authors/author-id",
+  ]);
+});
+
+test("applies action request overrides after resolving remote dependencies", async () => {
+  const requests: Array<{ url: string; body: string | null }> = [];
+  const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
+    const url = String(input);
+    requests.push({ url, body: (init?.body as string | undefined) ?? null });
+    return url.endsWith("/author")
+      ? Response.json({ id: "author-123" })
+      : Response.json({ ok: true });
+  });
+  const graph: ResourceRequestGraph = {
+    resources: [
+      {
+        id: "author",
+        outputName: "Author",
+        dependencies: [],
+        createRequest: () => ({
+          name: "Author",
+          method: "get",
+          url: "https://example.com/author",
+          searchParams: [],
+          headers: [],
+        }),
+      },
+      {
+        id: "submit",
+        outputName: "Submit",
+        dependencies: ["author"],
+        createRequest: (documents) => ({
+          name: "Submit",
+          method: "post",
+          url: `https://example.com/submit/${(documents.get("author") as { data: { id: string } }).data.id}`,
+          searchParams: [],
+          headers: [],
+          body: { stale: true },
+        }),
+      },
+    ],
+    rootIds: ["submit"],
+  };
+
+  await expect(
+    loadResources(fetch, graph, undefined, {
+      requestOverrides: new Map([
+        ["submit", { body: { email: "ada@example.com" } }],
+      ]),
+    })
+  ).resolves.toEqual({
+    Submit: {
+      data: { ok: true },
+      ok: true,
+      status: 200,
+      statusText: "",
+    },
+  });
+  expect(requests).toEqual([
+    { url: "https://example.com/author", body: null },
+    {
+      url: "https://example.com/submit/author-123",
+      body: JSON.stringify({ email: "ada@example.com" }),
+    },
+  ]);
+});
+
+test("runs independent resources concurrently while keeping dependency chains serial", async () => {
+  const independentIds = Array.from(
+    { length: 19 },
+    (_, index) => `independent-${index}`
+  );
+  const initialRequestIds = new Set(["chain-first", ...independentIds]);
+  const requestedUrls: string[] = [];
+  let active = 0;
+  let maximumActive = 0;
+  let initialRequestCount = 0;
+  let releaseInitialRequests = () => {};
+  const initialRequestsReleased = new Promise<void>((resolve) => {
+    releaseInitialRequests = resolve;
+  });
+  let resolveInitialRequestsStarted = () => {};
+  const initialRequestsStarted = new Promise<void>((resolve) => {
+    resolveInitialRequestsStarted = resolve;
+  });
+  const fetch = vi.fn<typeof globalThis.fetch>(async (input) => {
+    const url = String(input);
+    requestedUrls.push(url);
+    active += 1;
+    maximumActive = Math.max(maximumActive, active);
+    const requestId = url.split("/").at(-1);
+    if (requestId !== undefined && initialRequestIds.has(requestId)) {
+      initialRequestCount += 1;
+      if (initialRequestCount === initialRequestIds.size) {
+        resolveInitialRequestsStarted();
+      }
+      await initialRequestsReleased;
+    }
+    const response =
+      requestId === "chain-first"
+        ? Response.json({ id: "chain-document" })
+        : Response.json({ requestId });
+    active -= 1;
+    return response;
+  });
+  const graph: ResourceRequestGraph = {
+    resources: [
+      {
+        id: "chain-first",
+        outputName: "Chain first",
+        dependencies: [],
+        createRequest: () => ({
+          name: "Chain first",
+          method: "get",
+          url: "https://example.com/chain-first",
+          searchParams: [],
+          headers: [],
+        }),
+      },
+      {
+        id: "chain-second",
+        outputName: "Chain second",
+        dependencies: ["chain-first"],
+        createRequest: (documents) => ({
+          name: "Chain second",
+          method: "get",
+          url: `https://example.com/chain-second/${
+            (documents.get("chain-first") as { data: { id: string } }).data.id
+          }`,
+          searchParams: [],
+          headers: [],
+        }),
+      },
+      {
+        id: "chain-third",
+        outputName: "Chain third",
+        dependencies: ["chain-second"],
+        createRequest: () => ({
+          name: "Chain third",
+          method: "get",
+          url: "https://example.com/chain-third",
+          searchParams: [],
+          headers: [],
+        }),
+      },
+      ...independentIds.map((id) => ({
+        id,
+        outputName: id,
+        dependencies: [],
+        createRequest: () => ({
+          name: id,
+          method: "get" as const,
+          url: `https://example.com/${id}`,
+          searchParams: [],
+          headers: [],
+        }),
+      })),
+    ],
+    rootIds: ["chain-third", ...independentIds],
+  };
+
+  const resultPromise = loadResources(fetch, graph);
+  await initialRequestsStarted;
+
+  expect(initialRequestCount).toBe(20);
+  expect(maximumActive).toBe(20);
+  expect(requestedUrls).not.toContain(
+    "https://example.com/chain-second/chain-document"
+  );
+
+  releaseInitialRequests();
+  const result = await resultPromise;
+
+  expect(fetch).toHaveBeenCalledTimes(22);
+  const chainSecondIndex = requestedUrls.indexOf(
+    "https://example.com/chain-second/chain-document"
+  );
+  const chainThirdIndex = requestedUrls.indexOf(
+    "https://example.com/chain-third"
+  );
+  expect(chainSecondIndex).toBeGreaterThanOrEqual(20);
+  expect(chainThirdIndex).toBeGreaterThan(chainSecondIndex);
+  expect(result["Chain third"]).toMatchObject({
+    data: { requestId: "chain-third" },
+  });
+});
+
+test.each(["legacy map", "request graph"] as const)(
+  "bounds concurrent resource requests from a %s",
+  async (inputType) => {
+    let active = 0;
+    let maximumActive = 0;
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => {
+      active += 1;
+      maximumActive = Math.max(maximumActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      active -= 1;
+      return Response.json({});
+    });
+    const requests = new Map<string, ResourceRequest>();
+    for (let index = 0; index < 21; index += 1) {
+      requests.set(`resource-${index}`, {
+        name: `Resource ${index}`,
+        method: "get",
+        url: `https://example.com/${index}`,
+        searchParams: [],
+        headers: [],
+      });
+    }
+    const graph: ResourceRequestGraph = {
+      resources: Array.from(requests, ([id, request]) => ({
+        id,
+        outputName: id,
+        dependencies: [],
+        createRequest: () => request,
+      })),
+      rootIds: Array.from(requests.keys()),
+    };
+
+    await loadResources(fetch, inputType === "legacy map" ? requests : graph);
+
+    expect(maximumActive).toBe(20);
+  }
+);
+
+test("preserves structured cancellation results for legacy request maps", async () => {
+  const controller = new AbortController();
+  controller.abort(new Error("cancelled"));
+  const fetch = vi.fn<typeof globalThis.fetch>(async (_input, init) => {
+    init?.signal?.throwIfAborted();
+    return Response.json({});
+  });
+  const request: ResourceRequest = {
+    name: "Resource",
+    method: "get",
+    url: "https://example.com/resource",
+    searchParams: [],
+    headers: [],
+  };
+
+  await expect(
+    loadResources(fetch, new Map([["Resource", request]]), undefined, {
+      signal: controller.signal,
+    })
+  ).resolves.toMatchObject({
+    Resource: {
+      ok: false,
+      data: {
+        error: { code: "REQUEST_CANCELLED" },
+      },
+      status: 499,
+    },
+  });
+});
+
+test("builds canonical Assets command URLs", () => {
+  expect(assetsUploadsApiUrl).toBe("/rest/assets/uploads");
+  expect(getAssetUploadApiUrl("folder/name.png")).toBe(
+    "/rest/assets/uploads/folder%2Fname.png"
+  );
+  expect(getAssetContentApiUrl("asset/id")).toBe(
+    "/rest/assets/asset%2Fid/content"
+  );
+  expect(getAssetApiUrl("asset/id")).toBe("/rest/assets/asset%2Fid");
+  expect(getAssetFolderApiUrl("folder/id")).toBe(
+    "/rest/assets/folders/folder%2Fid"
+  );
+});
+
+describe("resource fetch batch provider", () => {
+  test("collects matching requests and maps responses in request order", async () => {
+    const execute = vi.fn(async (requests: readonly Request[]) =>
+      requests.map(
+        (request) => new Response(new URL(request.url).searchParams.get("id"))
+      )
+    );
+    const provider = createResourceFetchBatchProvider({
+      baseUrl: "https://example.com/builder",
+      shouldBatch: (input) =>
+        typeof input === "string" && input.startsWith("/$resources/assets"),
+      execute,
+    });
+
+    const first = provider.fetch("/$resources/assets?id=first", {
+      method: "POST",
+    });
+    const second = provider.fetch("/$resources/assets?id=second", {
+      method: "POST",
+    });
+
+    expect(provider.fetch("https://example.com/posts")).toBeUndefined();
+
+    await Promise.all([provider.flush(), provider.flush()]);
+    await provider.flush();
+
+    expect(execute).toHaveBeenCalledOnce();
+    expect(execute).toHaveBeenCalledWith([
+      expect.objectContaining({
+        url: "https://example.com/$resources/assets?id=first",
+      }),
+      expect.objectContaining({
+        url: "https://example.com/$resources/assets?id=second",
+      }),
+    ]);
+    await expect(first).resolves.toHaveProperty("url");
+    await expect(first?.then((response) => response.text())).resolves.toBe(
+      "first"
+    );
+    await expect(second?.then((response) => response.text())).resolves.toBe(
+      "second"
+    );
+    expect(provider.fetch("/$resources/assets?id=late")).toBeUndefined();
+  });
+
+  test("uses the in-flight execution as the completion barrier for every flush", async () => {
+    let finishExecution!: (responses: readonly Response[]) => void;
+    const execute = vi.fn(
+      () =>
+        new Promise<readonly Response[]>((resolve) => {
+          finishExecution = resolve;
+        })
+    );
+    const provider = createResourceFetchBatchProvider({
+      baseUrl: "https://example.com",
+      shouldBatch: () => true,
+      execute,
+    });
+    const response = provider.fetch("/first");
+    const settled: string[] = [];
+
+    const firstBarrier = provider.flush();
+    const concurrentBarrier = provider.flush();
+    const usesSameBarrier = firstBarrier === concurrentBarrier;
+    const firstFlush = firstBarrier.then(() => {
+      settled.push("first");
+    });
+    const concurrentFlush = concurrentBarrier.then(() => {
+      settled.push("concurrent");
+    });
+    await Promise.resolve();
+    const settledBeforeExecution = [...settled];
+
+    finishExecution([new Response("done")]);
+    await Promise.all([firstFlush, concurrentFlush]);
+
+    expect(usesSameBarrier).toBe(true);
+    expect(settledBeforeExecution).toEqual([]);
+    expect(settled).toEqual(["first", "concurrent"]);
+    await expect(provider.flush()).resolves.toBeUndefined();
+    expect(execute).toHaveBeenCalledOnce();
+    await expect(response?.then((item) => item.text())).resolves.toBe("done");
+  });
+
+  test("rejects every request when execution fails", async () => {
+    const error = new Error("batch failed");
+    const provider = createResourceFetchBatchProvider({
+      baseUrl: "https://example.com",
+      shouldBatch: () => true,
+      execute: vi.fn().mockRejectedValue(error),
+    });
+    const first = provider.fetch("/first");
+    const second = provider.fetch("/second");
+
+    await provider.flush();
+
+    await expect(first).rejects.toBe(error);
+    await expect(second).rejects.toBe(error);
+  });
+
+  test("rejects every request when the response count does not match", async () => {
+    const provider = createResourceFetchBatchProvider({
+      baseUrl: "https://example.com",
+      shouldBatch: () => true,
+      execute: vi.fn().mockResolvedValue([new Response("first")]),
+    });
+    const first = provider.fetch("/first");
+    const second = provider.fetch("/second");
+
+    await provider.flush();
+
+    await expect(first).rejects.toThrow(
+      "Resource batch response count does not match requests"
+    );
+    await expect(second).rejects.toThrow(
+      "Resource batch response count does not match requests"
+    );
+  });
+});
+
+// Mock the fetch function
+
+describe("loadResource", () => {
+  let mockFetch: Mock<typeof fetch>;
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  test("should successfully fetch a resource and return a JSON response", async () => {
+    const mockResponse = new Response(JSON.stringify({ key: "value" }), {
+      status: 200,
+    });
+    mockFetch.mockResolvedValue(mockResponse);
+
+    const resourceRequest: ResourceRequest = {
+      name: "resource",
+      url: "https://example.com/resource",
+      searchParams: [],
+      method: "get",
+      headers: [],
+      body: undefined,
+    };
+
+    const result = await loadResource(mockFetch, resourceRequest);
+
+    expect(mockFetch).toHaveBeenCalledWith("https://example.com/resource", {
+      method: "get",
+      headers: new Headers(),
+    });
+
+    expect(result).toEqual({
+      data: {
+        key: "value",
+      },
+      ok: true,
+      status: 200,
+      statusText: "",
+    });
+  });
+
+  test("should fetch resource successfully with non-JSON response", async () => {
+    const mockResponse = new Response("nonjson", {
+      status: 200,
+    });
+    mockFetch.mockResolvedValue(mockResponse);
+
+    const resourceRequest: ResourceRequest = {
+      name: "resource",
+      url: "https://example.com/resource",
+      searchParams: [],
+      method: "get",
+      headers: [],
+      body: undefined,
+    };
+
+    const result = await loadResource(mockFetch, resourceRequest);
+
+    expect(mockFetch).toHaveBeenCalledWith("https://example.com/resource", {
+      method: "get",
+      headers: new Headers(),
+    });
+
+    expect(result).toEqual({
+      data: "nonjson",
+      ok: true,
+      status: 200,
+      statusText: "",
+    });
+  });
+
+  test("logs the response body when a resource request fails", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockFetch.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: "INVALID_REQUEST",
+          issues: [{ path: ["query", "where"] }],
+        }),
+        { status: 400 }
+      )
+    );
+
+    await loadResource(mockFetch, {
+      name: "resource",
+      url: "https://example.com/resource",
+      searchParams: [],
+      method: "get",
+      headers: [],
+    });
+
+    expect(error).toHaveBeenCalledWith(
+      expect.stringContaining('"code": "INVALID_REQUEST"')
+    );
+    expect(error).toHaveBeenCalledWith(
+      expect.stringContaining('"path": [\n        "query",\n        "where"')
+    );
+  });
+
+  test("bounds resource error diagnostics", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockFetch.mockResolvedValue(
+      new Response("x".repeat(3000), { status: 500 })
+    );
+
+    await loadResource(mockFetch, {
+      name: "resource",
+      url: "https://example.com/resource",
+      searchParams: [],
+      method: "get",
+      headers: [],
+    });
+
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("…truncated"));
+    expect(error.mock.calls[0]?.[0]).not.toContain("x".repeat(2001));
+  });
+
+  test("exposes Assets query results as an ID-keyed resource value", async () => {
+    mockFetch.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            items: [
+              { id: "second", name: "Second" },
+              { id: "first", name: "First" },
+            ],
+            totalCount: 5,
+            hasMore: true,
+          },
+          __diagnostics__: { scope: "query-preview" },
+          __performance__: { serverDurationMs: 125.5, responseBytes: 1024 },
+        })
+      )
+    );
+
+    const result = await loadResource(mockFetch, {
+      name: "assets",
+      url: "/$resources/assets",
+      searchParams: [],
+      method: "post",
+      headers: [],
+      body: {},
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      status: 200,
+      statusText: "",
+      data: {
+        second: { name: "Second" },
+        first: { name: "First" },
+      },
+      meta: { totalCount: 5, hasMore: true },
+      __diagnostics__: { scope: "query-preview" },
+      __performance__: { serverDurationMs: 125.5, responseBytes: 1024 },
+    });
+    expect(Object.keys(result.data as Record<string, unknown>)).toEqual([
+      "second",
+      "first",
+    ]);
+  });
+
+  test("retains ID in Assets values only when selected", async () => {
+    mockFetch.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [{ id: "asset", name: "Asset" }],
+          totalCount: 1,
+          hasMore: false,
+        })
+      )
+    );
+
+    const result = await loadResource(mockFetch, {
+      name: "assets",
+      url: "/$resources/assets",
+      searchParams: [],
+      method: "post",
+      headers: [],
+      body: {
+        query: {
+          output: {
+            mode: "fields",
+            includeMetadata: false,
+            fields: [["id"]],
+          },
+        },
+      },
+    });
+
+    expect(result.data).toEqual({ asset: { id: "asset", name: "Asset" } });
+  });
+
+  test("exposes a single Assets result as a direct item with identity", async () => {
+    mockFetch.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            item: { id: "post", properties: { title: "Post" } },
+            totalCount: 1,
+          },
+          __diagnostics__: { scope: "query-preview" },
+        })
+      )
+    );
+
+    const result = await loadResource(mockFetch, {
+      name: "assets",
+      url: "/$resources/assets",
+      searchParams: [],
+      method: "post",
+      headers: [],
+      body: { query: { result: "one" } },
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      status: 200,
+      statusText: "",
+      data: { id: "post", properties: { title: "Post" } },
+      meta: { totalCount: 1 },
+      __diagnostics__: { scope: "query-preview" },
+    });
+  });
+
+  test("does not reshape arbitrary POST resources", async () => {
+    const collection = {
+      items: [{ id: "item" }],
+      totalCount: 1,
+      hasMore: false,
+    };
+    mockFetch.mockResolvedValue(new Response(JSON.stringify(collection)));
+
+    await expect(
+      loadResource(
+        mockFetch,
+        {
+          name: "posts",
+          url: "/api/posts",
+          searchParams: [],
+          method: "post",
+          headers: [],
+          body: {},
+        },
+        "https://example.com"
+      )
+    ).resolves.toMatchObject({ data: collection });
+  });
+
+  test("should fetch resource with search params", async () => {
+    const mockResponse = new Response(JSON.stringify({ key: "value" }), {
+      status: 200,
+    });
+    mockFetch.mockResolvedValue(mockResponse);
+
+    const resourceRequest: ResourceRequest = {
+      name: "resource",
+      url: "https://example.com/resource",
+      searchParams: [
+        { name: "search", value: "term1" },
+        { name: "search", value: "term2" },
+        { name: "filter", value: "привет" },
+      ],
+      method: "get",
+      headers: [],
+    };
+
+    await loadResource(mockFetch, resourceRequest);
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://example.com/resource?search=term1&search=term2&filter=%D0%BF%D1%80%D0%B8%D0%B2%D0%B5%D1%82",
+      {
+        method: "get",
+        headers: new Headers(),
+      }
+    );
+  });
+
+  test("resolves a root-relative URL against the request origin", async () => {
+    mockFetch.mockResolvedValue(new Response("ok"));
+    const resourceRequest: ResourceRequest = {
+      name: "resource",
+      url: "/api/posts",
+      searchParams: [{ name: "tag", value: "news" }],
+      method: "get",
+      headers: [],
+    };
+
+    await loadResource(
+      mockFetch,
+      resourceRequest,
+      "https://example.com/blog/post"
+    );
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://example.com/api/posts?tag=news",
+      {
+        method: "get",
+        headers: new Headers(),
+      }
+    );
+  });
+
+  test("resolves a path-relative URL against the request origin", async () => {
+    mockFetch.mockResolvedValue(new Response("ok"));
+    const resourceRequest: ResourceRequest = {
+      name: "resource",
+      url: "api/posts",
+      searchParams: [],
+      method: "get",
+      headers: [],
+    };
+
+    await loadResource(
+      mockFetch,
+      resourceRequest,
+      "https://example.com/blog/post"
+    );
+
+    expect(mockFetch).toHaveBeenCalledWith("https://example.com/api/posts", {
+      method: "get",
+      headers: new Headers(),
+    });
+  });
+
+  test("does not intercept an external URL that resembles a local resource", () => {
+    expect(
+      isLocalResource("https://example.com/$resources/assets", "assets")
+    ).toBe(false);
+    expect(isLocalResource("//$resources/assets", "assets")).toBe(false);
+    expect(isLocalResource("//example.com/$resources/assets", "assets")).toBe(
+      false
+    );
+  });
+
+  test("matches only the exact Assets resource path", () => {
+    expect(isLocalResource("/$resources/assets", "assets")).toBe(true);
+    expect(isLocalResource("/$resources/assets/query", "assets")).toBe(false);
+  });
+
+  test("keeps a local resource relative while resolving ordinary URLs", async () => {
+    mockFetch.mockResolvedValue(new Response("ok"));
+    await loadResource(
+      mockFetch,
+      {
+        name: "assets",
+        url: "/$resources/assets",
+        searchParams: [{ name: "page", value: 1 }],
+        method: "get",
+        headers: [],
+      },
+      "https://example.com/blog/post"
+    );
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/$resources/assets?page=1",
+      expect.any(Object)
+    );
+  });
+
+  test("returns a structured cancellation failure", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    mockFetch.mockImplementation((_input, init) => {
+      if (init?.signal?.aborted) {
+        return Promise.reject(new DOMException("Aborted", "AbortError"));
+      }
+      return Promise.resolve(new Response("unexpected"));
+    });
+    const resourceRequest: ResourceRequest = {
+      name: "resource",
+      url: "https://example.com/resource",
+      searchParams: [],
+      method: "get",
+      headers: [],
+    };
+
+    await expect(
+      loadResource(mockFetch, resourceRequest, undefined, {
+        signal: controller.signal,
+      })
+    ).resolves.toEqual({
+      ok: false,
+      data: {
+        ok: false,
+        error: {
+          code: "REQUEST_CANCELLED",
+          message: "Resource request was cancelled",
+          retryable: false,
+        },
+      },
+      status: 499,
+      statusText: "Resource request was cancelled",
+    });
+  });
+
+  test("preserves the first abort reason when cancellation precedes timeout", async () => {
+    vi.useFakeTimers();
+    const controller = new AbortController();
+    let rejectFetch = () => {};
+    mockFetch.mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectFetch = () => reject(new DOMException("Aborted", "AbortError"));
+        })
+    );
+    const pending = loadResource(
+      mockFetch,
+      {
+        name: "resource",
+        url: "https://example.com/resource",
+        searchParams: [],
+        method: "get",
+        headers: [],
+      },
+      undefined,
+      { signal: controller.signal, timeoutMs: 100 }
+    );
+
+    controller.abort();
+    await vi.advanceTimersByTimeAsync(100);
+    rejectFetch();
+
+    await expect(pending).resolves.toMatchObject({
+      data: { error: { code: "REQUEST_CANCELLED" } },
+      status: 499,
+    });
+  });
+
+  test("aborts at the deadline and returns a structured timeout", async () => {
+    vi.useFakeTimers();
+    mockFetch.mockImplementation(
+      (_input, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(new DOMException("Aborted", "AbortError"));
+          });
+        })
+    );
+    const resourceRequest: ResourceRequest = {
+      name: "resource",
+      url: "https://example.com/resource",
+      searchParams: [],
+      method: "get",
+      headers: [],
+    };
+
+    const pending = loadResource(mockFetch, resourceRequest, undefined, {
+      timeoutMs: 100,
+    });
+    await vi.advanceTimersByTimeAsync(100);
+
+    await expect(pending).resolves.toEqual({
+      ok: false,
+      data: {
+        ok: false,
+        error: {
+          code: "REQUEST_TIMEOUT",
+          message: "Resource request exceeded 100ms",
+          retryable: true,
+        },
+      },
+      status: 504,
+      statusText: "Resource request exceeded 100ms",
+    });
+  });
+
+  test("times out when fetch ignores its abort signal", async () => {
+    vi.useFakeTimers();
+    mockFetch.mockImplementation(() => new Promise(() => {}));
+    const pending = loadResource(
+      mockFetch,
+      {
+        name: "resource",
+        url: "https://example.com/resource",
+        searchParams: [],
+        method: "get",
+        headers: [],
+      },
+      undefined,
+      { timeoutMs: 100 }
+    );
+    let result: Awaited<typeof pending> | undefined;
+    void pending.then((value) => {
+      result = value;
+    });
+
+    await vi.advanceTimersByTimeAsync(100);
+
+    expect(result).toMatchObject({
+      data: { error: { code: "REQUEST_TIMEOUT" } },
+      status: 504,
+    });
+  });
+
+  test("returns a safe structured network failure", async () => {
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockFetch.mockRejectedValue(new Error("secret upstream detail"));
+    const resourceRequest: ResourceRequest = {
+      name: "resource",
+      url: "https://example.com/resource",
+      searchParams: [],
+      method: "get",
+      headers: [],
+    };
+
+    await expect(loadResource(mockFetch, resourceRequest)).resolves.toEqual({
+      ok: false,
+      data: {
+        ok: false,
+        error: {
+          code: "NETWORK_ERROR",
+          message: "Resource request failed",
+          retryable: true,
+        },
+      },
+      status: 502,
+      statusText: "Resource request failed",
+    });
+    expect(errorLog).toHaveBeenCalledWith("Resource request failed");
+    expect(errorLog).not.toHaveBeenCalledWith(
+      expect.stringContaining("secret upstream detail")
+    );
+  });
+
+  test("should fetch resource with JSON search params", async () => {
+    const mockResponse = new Response(JSON.stringify({ key: "value" }), {
+      status: 200,
+    });
+    mockFetch.mockResolvedValue(mockResponse);
+
+    const resourceRequest: ResourceRequest = {
+      name: "resource",
+      url: "https://example.com/resource",
+      searchParams: [
+        { name: "filter", value: { type: "AND", left: "a", right: "b" } },
+      ],
+      method: "get",
+      headers: [],
+    };
+
+    await loadResource(mockFetch, resourceRequest);
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://example.com/resource?filter=%7B%22type%22%3A%22AND%22%2C%22left%22%3A%22a%22%2C%22right%22%3A%22b%22%7D",
+      {
+        method: "get",
+        headers: new Headers(),
+      }
+    );
+  });
+
+  test("should fetch resource with JSON headers", async () => {
+    const mockResponse = new Response(JSON.stringify({ key: "value" }), {
+      status: 200,
+    });
+    mockFetch.mockResolvedValue(mockResponse);
+
+    const resourceRequest: ResourceRequest = {
+      name: "resource",
+      url: "https://example.com/resource",
+      searchParams: [],
+      method: "get",
+      headers: [
+        { name: "filter", value: { type: "AND", left: "a", right: "b" } },
+      ],
+    };
+
+    await loadResource(mockFetch, resourceRequest);
+
+    expect(mockFetch).toHaveBeenCalledWith("https://example.com/resource", {
+      method: "get",
+      headers: new Headers([
+        ["filter", '{"type":"AND","left":"a","right":"b"}'],
+      ]),
+    });
+  });
+  test("loads configured Assets queries on the standard endpoint", async () => {
+    mockFetch.mockResolvedValue(Response.json({ ok: true }));
+
+    await loadResource(mockFetch, {
+      name: "Posts",
+      control: "system",
+      url: "/$resources/assets",
+      searchParams: [],
+      method: "post",
+      headers: [{ name: "content-type", value: "application/json" }],
+      body: { query: { where: { all: [] }, limit: 20, offset: 0 } },
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith("/$resources/assets", {
+      method: "post",
+      headers: new Headers([["content-type", "application/json"]]),
+      body: JSON.stringify({
+        query: { where: { all: [] }, limit: 20, offset: 0 },
+      }),
+    });
+  });
+});
+
+describe("getResourceCacheKey", () => {
+  test("separates structured Assets queries and index revisions", async () => {
+    const createRequest = (body: Record<string, unknown>) =>
+      new Request("https://example.com/$resources/assets", {
+        method: "POST",
+        headers: { "cache-control": "public, max-age=60" },
+        body: JSON.stringify(body),
+      });
+    const base = {
+      query: {
+        where: {
+          all: [
+            {
+              field: ["properties", "slug"],
+              operator: "eq",
+              value: "first",
+            },
+          ],
+        },
+        sort: [{ field: ["createdAt"], direction: "desc" }],
+        limit: 1,
+        offset: 0,
+        output: { mode: "all", includeMetadata: true },
+        content: { mode: "none" },
+      },
+      indexRevision: "index-1",
+    };
+    const requests = [
+      base,
+      { ...base, query: { ...base.query, limit: 2 } },
+      {
+        ...base,
+        query: {
+          ...base.query,
+          content: { mode: "markdown-body-ref", maxBytes: 1024 },
+        },
+      },
+      { ...base, indexRevision: "index-2" },
+    ];
+    const keys = await Promise.all(
+      requests.map(
+        async (body) => (await getResourceCacheKey(createRequest(body))).href
+      )
+    );
+
+    expect(new Set(keys).size).toBe(requests.length);
+  });
+});

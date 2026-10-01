@@ -1,0 +1,197 @@
+import type {
+  Asset,
+  FontAsset,
+  ImageAsset,
+  VideoAsset,
+  AllowedFileExtension,
+} from "@webstudio-is/sdk";
+import {
+  createId,
+  formatAssetName,
+  getMimeTypeByExtension,
+  getFileExtension,
+  IMAGE_EXTENSIONS,
+  detectAssetType,
+  getAssetContentHash,
+} from "@webstudio-is/sdk";
+import type { UploadingFileData } from "~/shared/nano-states";
+
+export const isAssetFilenameUsed = ({
+  assets,
+  filename,
+  folderId,
+  excludeAssetId,
+}: {
+  assets: Iterable<Asset>;
+  filename: string;
+  folderId?: string;
+  excludeAssetId?: Asset["id"];
+}) => {
+  for (const asset of assets) {
+    if (
+      asset.id !== excludeAssetId &&
+      asset.folderId === folderId &&
+      formatAssetName(asset) === filename
+    ) {
+      return true;
+    }
+  }
+  return false;
+};
+
+export const getImageNameAndType = (fileName: string) => {
+  const extractedExt = getFileExtension(fileName)?.toLowerCase();
+
+  if (!extractedExt) {
+    return;
+  }
+
+  // Check if it's a valid image extension
+  if (!IMAGE_EXTENSIONS.includes(extractedExt as AllowedFileExtension)) {
+    return;
+  }
+
+  return [getMimeTypeByExtension(extractedExt)!, fileName] as const;
+};
+
+const extractImageNameAndMimeTypeFromUrl = (url: URL) => {
+  const nameFromPath = url.pathname
+    .split("/")
+    .map(getImageNameAndType)
+    .filter(Boolean)[0];
+
+  if (nameFromPath != null) {
+    return nameFromPath;
+  }
+
+  const nameFromSearchParams = [...url.searchParams.values()]
+    .map(getImageNameAndType)
+    .filter(Boolean)[0];
+
+  if (nameFromSearchParams != null) {
+    return nameFromSearchParams;
+  }
+
+  // Any image format is suitable
+  const FALLBACK_URL_TYPE = "image/png";
+
+  return [FALLBACK_URL_TYPE, `${createId("nano")}.png`] as const;
+};
+
+export const getSha256Hash = async (data: string) => {
+  const encoder = new TextEncoder();
+  return getAssetContentHash(encoder.encode(data));
+};
+
+const readFileAsArrayBuffer = (file: File): Promise<ArrayBuffer> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as ArrayBuffer);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsArrayBuffer(file);
+  });
+
+export const getSha256HashOfFile = async (file: File) => {
+  const arrayBuffer = await readFileAsArrayBuffer(file);
+  return getAssetContentHash(arrayBuffer);
+};
+
+export const getFileUploadFingerprint = async (
+  file: File,
+  contentHash?: string
+) =>
+  JSON.stringify([file.name, contentHash ?? (await getSha256HashOfFile(file))]);
+
+export const getMimeType = (file: File | URL) => {
+  if (file instanceof File) {
+    return file.type;
+  }
+
+  return extractImageNameAndMimeTypeFromUrl(file)[0];
+};
+
+export const getFileName = (file: File | URL) => {
+  if (file instanceof File) {
+    return file.name;
+  }
+
+  return extractImageNameAndMimeTypeFromUrl(file)[1];
+};
+
+export const uploadingFileDataToAsset = (
+  fileData: UploadingFileData
+): Asset => {
+  const fileOrUrl =
+    fileData.source === "file" ? fileData.file : new URL(fileData.url);
+  const fileName = getFileName(fileOrUrl);
+  const mimeType = getMimeType(fileOrUrl);
+
+  // Extract format from MIME type if available, otherwise from filename extension
+  let format = mimeType.split("/")[1];
+  if (!format) {
+    format = getFileExtension(fileName)?.toLowerCase() ?? "";
+  }
+
+  const assetType = detectAssetType(fileName);
+  const base = {
+    id: fileData.assetId,
+    name: fileName,
+    description: "",
+    createdAt: "",
+    projectId: "",
+    size: 0,
+    folderId: fileData.folderId,
+  };
+
+  if (assetType === "image") {
+    const asset: ImageAsset = {
+      ...base,
+      format,
+      type: "image",
+      meta: {
+        width: Number.NaN,
+        height: Number.NaN,
+      },
+    };
+
+    return asset;
+  }
+
+  if (assetType === "font") {
+    const asset: FontAsset = {
+      ...base,
+      format: format as FontAsset["format"],
+      type: "font",
+      meta: {
+        family: "system",
+        style: "normal",
+        weight: 400,
+      },
+    };
+
+    return asset;
+  }
+
+  if (assetType === "video") {
+    const asset: VideoAsset = {
+      ...base,
+      format,
+      type: "video",
+      meta: {
+        width: Number.NaN,
+        height: Number.NaN,
+      },
+    };
+
+    return asset;
+  }
+
+  const asset: Asset = {
+    ...base,
+    format,
+    type: "file",
+    meta: {},
+  };
+
+  return asset;
+};
