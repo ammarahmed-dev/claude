@@ -3,6 +3,43 @@
 Status: plan, 2026-10-01. The **publishing path was proven locally**; hosting the builder itself on
 a free provider has **not been tried yet** (see "Not verified").
 
+## Where we stopped (2026-10-01) and what blocks going live
+
+**Paused on purpose until a domain exists.** The platform is built and verified locally; the database
+and file storage are live on Supabase; only the editor itself is not hosted anywhere public.
+
+Why the editor cannot just go live on a generated address:
+
+1. **It needs wildcard subdomains.** Each project opens at `p-<project-id>.<host>` (or
+   `p-<project-id>-dot-<host>`), and the dashboard, project editor and preview canvas are told apart by
+   hostname. Generated addresses such as `*.onrender.com` or `*.trycloudflare.com` cannot create
+   those subdomains. Roughly 70 call sites rely on this, and the separation is also a security
+   boundary (the canvas can run custom code and must not share an origin with the dashboard session).
+   A "single address" mode is therefore a multi-day refactor, not a quick change. Not started.
+2. **Render requires a payment card** even for its free plan (API answers 402). Not used.
+3. **Cloudflare Tunnel needs the domain's DNS on Cloudflare.** `aeocheck.co` stays on Namecheap
+   because a Vercel project uses it, so it cannot move. Running `cloudflared` from the cloud sandbox
+   also needs an explicit permission rule, and the tunnel's outbound port was never tested.
+
+Decision: wait for a domain. Cheapest route that keeps everything else intact:
+
+1. Buy any inexpensive domain (about $1-3 for a `.xyz`/`.site`) and add it to a free Cloudflare
+   account; point its nameservers at Cloudflare.
+2. Create an API token with Account -> Cloudflare Tunnel: Edit, Zone -> DNS: Edit, Zone -> Zone: Read.
+3. Build with `PUBLIC_SINGLE_LEVEL_PROJECT_HOSTS=true BUILDER_TARGET=node` (both already supported) so
+   project hosts are `p-<id>-dot-studio.<domain>`, one level below the zone and covered by Cloudflare's
+   free `*.<domain>` certificate.
+4. Create the tunnel with ingress for `*.<domain>`, a `studio` CNAME and a wildcard CNAME to it; run the
+   editor against Supabase (HTTPS only; the running editor never opens a direct database connection)
+   and start `cloudflared`.
+5. Replace the temporary secret login with GitHub login or Cloudflare Access before real use.
+
+For a permanent setup the editor still needs an always-on machine; a Docker image plus compose file with
+the tunnel is the planned packaging.
+
+Credentials used so far (Supabase access token and database password, storage keys) were shared in chat
+and must be rotated after development. Nothing secret is stored in this repository.
+
 ## Two things to host
 
 | Part                       | What it is                      | Needs                                                                    |
