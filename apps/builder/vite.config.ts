@@ -41,7 +41,9 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       remix({
-        presets: [vercelPreset()],
+        // BUILDER_TARGET=node builds a plain Node server (`pnpm start`) for
+        // Render, Docker or a VPS. The default stays the Vercel serverless output.
+        presets: process.env.BUILDER_TARGET === "node" ? [] : [vercelPreset()],
         future: {
           v3_lazyRouteDiscovery: false,
           v3_relativeSplatPath: false,

@@ -51,8 +51,8 @@ share link and Cloudflare token as encrypted secrets.
 
 From `apps/builder/app/env/env.server.ts` and the dev stack:
 
-- **Node server.** The app is Remix with Prisma, so it cannot run on Cloudflare Workers. The repo
-  ships a Vercel preset and `@remix-run/serve`, so a plain Node process (`remix-serve`) works too.
+- **Node server.** The app is Remix with Prisma, so it cannot run on Cloudflare Workers. It builds as a
+  plain Node process with `BUILDER_TARGET=node` (see below).
 - **Postgres + PostgREST.** Local dev runs the Supabase Postgres image plus `postgrest`. Supabase
   provides both, plus S3-compatible storage, which is why it is the natural fit.
 - **Storage** for uploaded assets and CMS entries: `S3_*` variables (otherwise local disk).
@@ -84,9 +84,26 @@ When the platform is proven and used daily, the first things worth paying for ar
 parts, in this order: the Node host, then the database (Supabase Pro is about $25/month). Static
 sites stay free.
 
+## Running the platform as a plain Node server (verified)
+
+The default build targets Vercel's serverless layout, which `pnpm start` cannot run. This fork adds an
+opt-out so the same code builds for Render, Docker or a VPS:
+
+```sh
+cd apps/builder
+BUILDER_TARGET=node pnpm build     # produces build/server/index.js
+set -a; source .env; set +a        # or set the same variables in the host's dashboard
+NODE_ENV=production PORT=3000 pnpm start
+```
+
+Verified on 2026-10-01 against the local Docker Postgres/PostgREST: the production build completes
+(about 35 s) and the server starts and serves the login page. The default build (without
+`BUILDER_TARGET`) is unchanged.
+
 ## Not verified
 
-1. The production build of the builder (`remix vite:build`) and running it as a Node server.
+1. A full production login and editing session. The server serves pages, but logging in behind HTTPS
+   (cookies, `DEPLOYMENT_URL`, OAuth callback URLs) was not exercised.
 2. The builder talking to Supabase's hosted Postgres, PostgREST and Storage instead of the local
    Docker stack, including running the Prisma migrations against it.
 3. OAuth login in production.
