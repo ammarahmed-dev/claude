@@ -1424,3 +1424,101 @@ test("allows collection fields to change while existing entries are repaired", a
       ?.disabled
   ).toBe(false);
 });
+
+const renderSummaryFieldDialog = async () => {
+  const schema = JSON.parse(createDefaultCollectionConfig());
+  schema.properties.summary = { type: "string", title: "Summary" };
+  const updateContent = vi.fn(
+    async ({ asset }: { asset: Asset; content: string }) => asset
+  );
+  render(
+    <CollectionSettingsDialog
+      collection={{
+        status: "ready",
+        folderId: "posts",
+        configAsset: createAsset({
+          id: "config",
+          filename: "collection",
+          format: "json",
+        }),
+        templateAsset: createAsset({
+          id: "template",
+          filename: "template",
+          format: "mdx",
+        }),
+        config: parseCollectionConfig(JSON.stringify(schema)),
+        templateProperties: { draft: true },
+      }}
+      open
+      onOpenChange={() => undefined}
+      readTemplateSource={async () => createDefaultCollectionTemplate()}
+      updateContent={updateContent}
+    />
+  );
+  await act(async () => undefined);
+  act(() =>
+    document
+      .querySelector<HTMLButtonElement>('[aria-label="Edit Summary"]')
+      ?.click()
+  );
+  const chooseType = async (value: string) => {
+    await act(async () =>
+      userEvent.click(
+        document.querySelector<HTMLButtonElement>(
+          '[aria-label="Summary type"]'
+        )!
+      )
+    );
+    const option = Array.from(
+      document.querySelectorAll<HTMLElement>('[role="option"]')
+    ).find((option) => option.textContent === value)!;
+    expect(option).toBeDefined();
+    await act(async () => userEvent.click(option));
+  };
+  return { updateContent, chooseType };
+};
+
+test("turns a field into a dropdown and saves its options as an enum", async () => {
+  const { updateContent, chooseType } = await renderSummaryFieldDialog();
+  await chooseType("Dropdown");
+  const options = document.querySelector<HTMLTextAreaElement>(
+    '[aria-label="Summary options"]'
+  )!;
+  expect(options.value).toBe("Option 1");
+  act(() => {
+    Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      "value"
+    )!.set!.call(options, "news\nguide\nrelease");
+    options.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await vi.waitFor(() => {
+    const last = updateContent.mock.calls.at(-1)?.[0].content;
+    expect(last).toBeDefined();
+    expect(
+      parseCollectionConfig(last!).fields.find((f) => f.key === "summary")
+        ?.options
+    ).toEqual(["news", "guide", "release"]);
+  });
+  const saved = parseCollectionConfig(
+    updateContent.mock.calls.at(-1)![0].content
+  );
+  expect(saved.fields.find((f) => f.key === "summary")).toMatchObject({
+    control: "select",
+    type: "string",
+  });
+  // Length limits do not apply to a dropdown.
+  expect(
+    document.querySelector('[aria-label="Summary type"]')?.textContent
+  ).toBe("Dropdown");
+});
+
+test("turns a field into a date and saves the date format", async () => {
+  const { updateContent, chooseType } = await renderSummaryFieldDialog();
+  await chooseType("Date");
+  expect(document.querySelector('[aria-label="Summary options"]')).toBeNull();
+  await vi.waitFor(() => expect(updateContent).toHaveBeenCalled());
+  const saved = JSON.parse(updateContent.mock.calls.at(-1)![0].content);
+  expect(saved.properties.summary.format).toBe("date");
+  expect(saved.properties.summary).not.toHaveProperty("minLength");
+});

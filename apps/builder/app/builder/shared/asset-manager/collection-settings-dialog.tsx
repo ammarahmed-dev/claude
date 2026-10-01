@@ -37,6 +37,7 @@ import {
   Select,
   Separator,
   Text,
+  TextArea,
   Tooltip,
   cssVar,
   theme,
@@ -77,6 +78,8 @@ type EditableType =
   | "Text"
   | "Long text"
   | "Slug"
+  | "Dropdown"
+  | "Date"
   | "Number"
   | "Whole number"
   | "Boolean";
@@ -94,6 +97,8 @@ const fieldTypes: readonly EditableType[] = [
   "Text",
   "Long text",
   "Slug",
+  "Dropdown",
+  "Date",
   "Number",
   "Whole number",
   "Boolean",
@@ -109,6 +114,12 @@ const createEditableFields = (
 const getEditableType = (field: CollectionField): EditableType => {
   if (field.control === "slug") {
     return "Slug";
+  }
+  if (field.control === "select") {
+    return "Dropdown";
+  }
+  if (field.control === "date") {
+    return "Date";
   }
   if (field.type === "boolean") {
     return "Boolean";
@@ -143,6 +154,20 @@ const setFieldType = (
       type: type === "Number" ? "number" : "integer",
       control: "number",
     };
+  }
+  if (type === "Dropdown") {
+    return {
+      ...shared,
+      type: "string",
+      control: "select",
+      options:
+        field.control === "select" && field.options !== undefined
+          ? field.options
+          : ["Option 1"],
+    };
+  }
+  if (type === "Date") {
+    return { ...shared, type: "string", control: "date" };
   }
   if (type === "Slug") {
     return {
@@ -1026,6 +1051,8 @@ export const CollectionSettingsDialog = ({
                           ? undefined
                           : `collection-field-key-error-${field.rowId}`;
                       const stringField = field.type === "string";
+                      const choiceField =
+                        field.control === "select" || field.control === "date";
                       const labelError =
                         showKeyErrors &&
                         !pristineInputs.has(`${field.rowId}:label`)
@@ -1296,6 +1323,32 @@ export const CollectionSettingsDialog = ({
                               />
                             </PanelContent>
                           )}
+                          {field.control === "select" && (
+                            <PanelContent
+                              as={Grid}
+                              gap={2}
+                              css={{ paddingTop: 0 }}
+                            >
+                              <Label
+                                htmlFor={`collection-field-options-${field.rowId}`}
+                              >
+                                Options (one per line)
+                              </Label>
+                              <TextArea
+                                id={`collection-field-options-${field.rowId}`}
+                                aria-label={`${field.label} options`}
+                                rows={5}
+                                disabled={formDisabled}
+                                value={(field.options ?? []).join("\n")}
+                                onChange={(value) =>
+                                  updateField(index, {
+                                    ...field,
+                                    options: value.split("\n"),
+                                  })
+                                }
+                              />
+                            </PanelContent>
+                          )}
                           <Separator />
                           <PanelContent as={Grid} gap={3}>
                             <Text variant="labels">Validation</Text>
@@ -1325,7 +1378,8 @@ export const CollectionSettingsDialog = ({
                                   "minmax(0, 1fr) minmax(0, 1fr)",
                               }}
                             >
-                              {(stringField || numberField) && (
+                              {((stringField && !choiceField) ||
+                                numberField) && (
                                 <>
                                   <Grid gap={1}>
                                     <Label>

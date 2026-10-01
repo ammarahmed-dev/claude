@@ -7,6 +7,7 @@ import {
   Grid,
   InputField,
   ResettableLabel,
+  Select,
   ToggleGroup,
   ToggleGroupButton,
   Text,
@@ -105,6 +106,23 @@ export const CollectionEntryFields = ({
                   </ToggleGroupButton>
                 ))}
             </ToggleGroup>
+          ) : field.control === "select" ? (
+            <Select
+              id={id}
+              aria-label={field.label}
+              aria-invalid={hasFieldError || undefined}
+              options={field.options ?? []}
+              value={
+                typeof value === "string" && field.options?.includes(value)
+                  ? value
+                  : undefined
+              }
+              placeholder="Select an option"
+              disabled={
+                disabled || (readOnlySlug && field.key === config.slugField)
+              }
+              onChange={(option) => onChange(field, option)}
+            />
           ) : field.control === "textarea" ? (
             <TextArea
               id={id}
@@ -124,7 +142,9 @@ export const CollectionEntryFields = ({
               type={
                 field.type === "number" || field.type === "integer"
                   ? "number"
-                  : "text"
+                  : field.control === "date"
+                    ? "date"
+                    : "text"
               }
               min={field.minimum}
               max={field.maximum}

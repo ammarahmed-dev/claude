@@ -32,9 +32,17 @@ file-based CMS:
 
 ### Gaps versus Webflow's CMS
 
-Field types are only `string | number | integer | boolean` (controls: text, textarea, slug,
-number, checkbox). Missing: rich text, image/file, date, option/select, color, link,
-single reference, multi-reference.
+Originally field types were only `string | number | integer | boolean`. Progress:
+
+| Webflow field                         | Status                                                                 |
+| ------------------------------------- | ---------------------------------------------------------------------- |
+| Plain text, long text, number, switch | built in                                                               |
+| Option (dropdown)                     | **done**: string + `enum` (up to 256 options), `select` control        |
+| Date                                  | **done**: string + `format: "date"`, validated as a real calendar date |
+| Rich text                             | todo (entry body is already MDX; needs a field-level editor)           |
+| Image / file                          | todo                                                                   |
+| Color, link                           | todo                                                                   |
+| Reference / multi-reference           | todo (engine already supports `$ref` between documents)                |
 
 ## Decision
 
@@ -49,9 +57,9 @@ single reference, multi-reference.
 
 1. Verify the collection flow end to end in the running editor (create collection, add
    entries, bind a list on a page).
-2. Raise `frontmatterFields`/`jsonFields` and set `CONTENT_DATABASE_MAX_BYTES`.
+2. ~~Raise `frontmatterFields`/`jsonFields`~~ done (256 -> 2048). Still to do: set `CONTENT_DATABASE_MAX_BYTES` for real content volumes.
 3. Add field types in `content-collection.ts` (`CollectionField`) and the field editor UI:
-   date, option, image, rich text, single/multi reference (via the existing `$ref`).
+   date and option are done; image, rich text, color, link and references remain.
 4. Tests for each new type (the package already has a large vitest suite).
 5. Document how a non-developer creates a collection.
 
