@@ -93,7 +93,9 @@ describe("content database publish findings", () => {
     expect(finding.reportText).toContain(
       "Check that the asset is available in Content Assets, then run Validate again."
     );
-    expect(finding.reportText).toContain("https://wstd.us/mcp");
+    expect(finding.reportText).toContain(
+      "https://github.com/ammarahmed-dev/claude"
+    );
     expect(finding.reportText).toContain("Asset ID: asset-1");
     expect(finding.reportText).toContain(
       "Diagnostic reason: source-read-failed"

@@ -37,7 +37,7 @@ describe("getPublishValidationErrorMessage", () => {
     );
   });
 
-  test("locates a linked asset and points users to Webstudio MCP", () => {
+  test("locates a linked asset and points users to BD Flow support", () => {
     const error = new Error("Document asset-id could not be loaded");
     const asset = {
       id: "asset-id",
@@ -78,7 +78,7 @@ describe("getPublishValidationErrorMessage", () => {
         [parentFolder.id, parentFolder],
       ]) as never,
     });
-    expect(message).toContain("https://wstd.us/mcp");
+    expect(message).toContain("https://github.com/ammarahmed-dev/claude");
     expect(message).toContain("Document ID: asset-id");
     expect(message).not.toContain("contact Webstudio support");
   });
@@ -88,7 +88,7 @@ describe("getPublishValidationErrorMessage", () => {
       new Error("Document asset-id could not be loaded")
     );
 
-    expect(message).toContain("https://wstd.us/mcp");
+    expect(message).toContain("https://github.com/ammarahmed-dev/claude");
     expect(message).toContain("Document ID: asset-id");
   });
 });
