@@ -30,6 +30,35 @@ Notes:
 - The upload includes the CMS source files under `/assets` (collection definition and entry files).
   They are public. Do not put private content in a collection that is published this way.
 
+## The editor is live on Vercel (2026-10-01)
+
+**https://bdflow-studio.vercel.app** serves the dashboard and editor. It is the same build the project
+was designed for (the Vercel preset), running against the Supabase database and storage described
+above. Vercel project `bdflow-studio` (Hobby plan, Seoul region), linked to this repository and branch.
+
+How it is configured:
+
+- Root directory `apps/builder`; install and build commands run from the repository root (see the
+  project settings); Node 22; framework Remix.
+- Environment variables (production and preview): `POSTGREST_URL`, `POSTGREST_API_KEY` (service role,
+  stored as a sensitive value), `S3_*`, `AUTH_SECRET` (sensitive), `DEV_LOGIN=true`,
+  `PUBLIC_SINGLE_LEVEL_PROJECT_HOSTS=true`, `DEFAULT_PLAN_FEATURES`.
+- Vercel's own login wall is off for the project, so the app is public and protected only by its
+  secret login. Replace it with GitHub login before real use.
+
+Project editors open at `p-<project-id>-dot-bdflow-studio.vercel.app`. Vercel allows aliasing any free
+`*.vercel.app` name to a deployment but has no wildcard for them, so **each new project's editor
+address must be registered once** (`assign_alias` for the host above). Until a domain with wildcard
+subdomains exists, a project created in the dashboard shows a Vercel 404 at its editor address until
+that alias is added. Look the id up with: `select id, title from "Project"` in the Supabase project.
+
+Limits and caveats:
+
+- Vercel Hobby is for personal, non-commercial use. Move to Pro or another host before commercial use.
+- Redeploy after changes with the Vercel connector (`create_deployment` from this branch), then check
+  the alias list; the short alias `bdflow-studio.vercel.app` must stay attached (the one-level project
+  host has a 63-character label limit).
+
 ## Where we stopped (2026-10-01) and what blocks going live
 
 **Paused on purpose until a domain exists.** The platform is built and verified locally; the database
