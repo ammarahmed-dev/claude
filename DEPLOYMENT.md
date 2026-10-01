@@ -121,9 +121,28 @@ was exported from the local Docker database (`pg_dump --schema=public --schema-o
 (`POST /v1/projects/{ref}/database/query`). From a normal machine or a Render build step, run
 `pnpm --filter @webstudio-is/prisma-client migrations migrate --cwd ../../apps/builder` instead.
 
-Still to do for the database: file storage. Supabase's S3 access keys can only be created in the
-dashboard (Project Settings -> Storage -> S3 Connection -> New access key); the builder then needs
-`S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` and `S3_BUCKET`.
+File storage (done and verified):
+
+- A private bucket `webstudio-assets` exists. The builder reads and writes it with signed S3 requests,
+  so nothing in it is public.
+- Environment for the builder (the two keys are created in the Supabase dashboard under Project
+  Settings -> Storage -> S3 Connection and must stay out of the repository):
+
+  ```
+  S3_ENDPOINT=https://tjtuyoonedogrwdqqimm.supabase.co/storage/v1/s3
+  S3_REGION=ap-northeast-2
+  S3_BUCKET=webstudio-assets
+  S3_ACCESS_KEY_ID=...        # secret
+  S3_SECRET_ACCESS_KEY=...    # secret
+  ```
+
+  Leave `S3_ACL` unset: Supabase does not support ACLs, and the uploader only sends one when set.
+
+- Fix needed for this: `createS3ObjectUrl` resolved `/<bucket>/<key>` against the endpoint, which
+  silently dropped the `/storage/v1/s3` prefix. It now keeps the endpoint's path. Endpoints without a
+  path behave as before. Covered by tests in `object-url.test.ts`.
+- Verified by uploading a file through the repository's own `createS3AssetObjectStore` and reading it
+  back identically; the test object was deleted afterwards.
 
 ## Dependence on Webstudio-hosted services
 
