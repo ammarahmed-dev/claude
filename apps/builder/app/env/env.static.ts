@@ -13,4 +13,11 @@
 export const publicStaticEnv = {
   VERSION: import.meta.env.GITHUB_SHA ?? "local",
   COLLAB_RELAY_URL: import.meta.env.PUBLIC_COLLAB_RELAY_URL,
+  /**
+   * "true" puts each project editor one level below the zone
+   * (`p-<id>-dot-studio.example.com`) instead of two (`p-<id>.studio.example.com`),
+   * so one `*.example.com` certificate, such as Cloudflare's free Universal SSL, covers all projects.
+   */
+  SINGLE_LEVEL_PROJECT_HOSTS:
+    import.meta.env.PUBLIC_SINGLE_LEVEL_PROJECT_HOSTS === "true",
 };

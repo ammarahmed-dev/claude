@@ -2,6 +2,7 @@ import type { AUTH_PROVIDERS } from "~/shared/session";
 import { getAssetUploadApiUrl } from "@webstudio-is/sdk/runtime";
 import { getAuthorizationServerOrigin } from "./origins";
 import type { BuilderMode } from "../nano-states/misc";
+import { publicStaticEnv } from "~/env/env.static";
 
 const searchParams = (params: Record<string, string | undefined | null>) => {
   const searchParams = new URLSearchParams();
@@ -44,17 +45,23 @@ export const builderPath = ({
 export const builderUrl = ({
   projectId,
   origin,
+  singleLevelHost = publicStaticEnv.SINGLE_LEVEL_PROJECT_HOSTS,
   ...link
 }: BuilderLinkParams & {
   projectId: string;
   origin: string;
+  /** Keep project hosts one level below the zone; see publicStaticEnv. */
+  singleLevelHost?: boolean;
 }) => {
   const authServerOrigin = getAuthorizationServerOrigin(origin);
 
   const url = new URL(builderPath(link), authServerOrigin);
 
   const fragments = url.host.split(".");
-  if (fragments.length <= 3) {
+  if (singleLevelHost) {
+    // parseBuilderUrl reads this form back (the part after -dot- is the source host)
+    fragments[0] = "p-" + projectId + "-dot-" + fragments[0];
+  } else if (fragments.length <= 3) {
     fragments.splice(0, 0, "p-" + projectId);
   } else {
     // staging | development branches
