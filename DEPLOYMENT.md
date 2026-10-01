@@ -3,6 +3,33 @@
 Status: plan, 2026-10-01. The **publishing path was proven locally**; hosting the builder itself on
 a free provider has **not been tried yet** (see "Not verified").
 
+## The published site is live (2026-10-01)
+
+**https://cms-demo-site.ammar-d29.workers.dev** serves the static site built from the demo project
+(three CMS entries, newest first). Checked from the internet: HTTP 200, the three headings, and the
+stylesheet loads.
+
+How it was deployed, so it can be repeated after every change:
+
+```sh
+# 1. pull the latest project and build the static site (see "Published sites" above)
+webstudio sync && webstudio build --template ssg && pnpm build        # -> dist/client
+# 2. serve that folder as a Worker with static assets
+#    wrangler.jsonc:  { "name": "cms-demo-site", "compatibility_date": "2026-10-01",
+#                       "assets": { "directory": "./public" } }      # public/ = copy of dist/client
+CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=... wrangler deploy
+```
+
+Notes:
+
+- Cloudflare has merged Pages into Workers. `wrangler pages deploy` now delegates to `wrangler deploy`
+  and fails without a Worker entry point, so deploy the folder as a Worker with static assets instead.
+  The API token needs **Account -> Workers Scripts -> Edit** (a Pages-only token is not enough).
+- The Worker name is the only thing in the Cloudflare account this project owns; an unrelated Worker
+  (`storage-worker`) already existed and was left untouched.
+- The upload includes the CMS source files under `/assets` (collection definition and entry files).
+  They are public. Do not put private content in a collection that is published this way.
+
 ## Where we stopped (2026-10-01) and what blocks going live
 
 **Paused on purpose until a domain exists.** The platform is built and verified locally; the database
