@@ -52,6 +52,33 @@ describe("getPlanInfo (msw)", () => {
     });
   });
 
+  test("user with no products gets the DEFAULT_PLAN_FEATURES baseline", async () => {
+    vi.stubEnv(
+      "DEFAULT_PLAN_FEATURES",
+      JSON.stringify({ allowDynamicData: true, maxAssetsPerProject: 100000 })
+    );
+    server.use(db.get("UserProduct", () => json([])));
+
+    const result = await getPlanInfo(["user-1"], testContext);
+    expect(result.get("user-1")?.planFeatures).toEqual({
+      ...defaultPlanFeatures,
+      allowDynamicData: true,
+      maxAssetsPerProject: 100000,
+    });
+  });
+
+  test("a product without a PLANS entry builds on the DEFAULT_PLAN_FEATURES baseline", async () => {
+    vi.stubEnv("PLANS", JSON.stringify([]));
+    vi.stubEnv("DEFAULT_PLAN_FEATURES", JSON.stringify({ allowAuth: true }));
+    server.use(
+      db.get("UserProduct", () => json([proUserProduct])),
+      db.get("Product", () => json([proProduct]))
+    );
+
+    const result = await getPlanInfo(["user-1"], testContext);
+    expect(result.get("user-1")?.planFeatures.allowAuth).toBe(true);
+  });
+
   test("user with one product resolves plan features from PLANS env + meta merge", async () => {
     vi.stubEnv(
       "PLANS",

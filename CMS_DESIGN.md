@@ -68,3 +68,40 @@ Originally field types were only `string | number | integer | boolean`. Progress
 - AGPL: modified source must be offered to outside users if we expose this as a service.
 - Upstream churn: the content engine is new and moving fast; keep our changes in small,
   separate commits.
+
+## Verified end to end (2026-10-01)
+
+Everything below was done by hand in the running editor, not just in unit tests:
+
+1. Created a `posts` collection folder (Assets panel -> Create folder -> "Use as content collection").
+2. In Collection settings, added a **Category** Dropdown (news / guide / release) and a **Published on** Date field.
+3. Created three entries with "New entry"; the form showed the dropdown and a date input. Stored
+   frontmatter is plain YAML (`category: news`, `publishedOn: 2026-10-01`); dates stay strings
+   because the engine parses YAML with the `core` schema.
+4. Queried them over `/rest/assets/query`: sorted by `publishedOn` desc, filtered by
+   `category = guide` (1 result) and by `publishedOn >= 2026-10-05` (2 results).
+5. On a page, added a System resource variable `posts` (Resource: Assets) with filter
+   `extension = mdx`, sort `properties / publishedOn` desc, output the CMS fields; added a
+   **Collection** component bound to `posts.data` and a **Heading** inside it bound to
+   `collectionItem.properties.title`. The canvas rendered the three titles in date order.
+
+Not verified yet: per-entry pages (`entryPageId`), publishing the site, image/rich text/reference fields.
+
+## Plan gating is removed for this fork
+
+Hosted Webstudio gates features by plan. The free plan locks resources (dynamic data) and allows only
+**50 assets per project**, which would also cap CMS entries, because entries are assets.
+
+`DEFAULT_PLAN_FEATURES` (JSON, in `apps/builder/.env`) overrides the baseline plan every account starts
+from. This fork sets every feature on and `maxAssetsPerProject` to 100000. Unknown keys or wrong types
+make the whole override invalid and the built-in free plan is used, with an error logged. The code lives
+in `packages/plans/src/plan-features.ts` (`resolveDefaultPlanFeatures`) and is covered by tests.
+
+## Editor tips learned while driving the UI
+
+- Binding a prop: select the element -> Settings -> hover the prop -> click the small blue dot -> type
+  the expression -> click the popover title to commit (Escape discards it).
+- The query editor's Query tab is editable code; pasting the whole expression is faster than the form
+  and avoids the quote-autoclosing of the small value boxes.
+- "All content fields" in the Output menu returns every field, so adding a CMS field never needs a
+  query edit.

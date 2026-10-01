@@ -4,6 +4,7 @@ import {
   planFeatures,
   defaultPlanFeatures,
   parsePlansEnv,
+  resolveDefaultPlanFeatures,
   type Purchase,
 } from "./plan-features";
 
@@ -22,6 +23,10 @@ type PlanInfo = {
   purchases: Array<Purchase>;
 };
 
+/** Plan every account starts from, after any DEFAULT_PLAN_FEATURES override. */
+export const getBaselinePlanFeatures = (): PlanFeatures =>
+  resolveDefaultPlanFeatures(process.env.DEFAULT_PLAN_FEATURES);
+
 export const parseProductMeta = (meta: unknown): Partial<PlanFeatures> => {
   const result = planFeatures.partial().safeParse(meta);
   return result.success ? result.data : {};
@@ -31,7 +36,7 @@ export const mergeProductMetas = (
   productMetas: Array<PlanFeatures>
 ): PlanFeatures => {
   if (productMetas.length === 0) {
-    return defaultPlanFeatures;
+    return getBaselinePlanFeatures();
   }
 
   return Object.fromEntries(
@@ -158,7 +163,10 @@ export const getPlanInfo = async (
     return new Map(
       userIds.map((userId) => [
         userId,
-        { planFeatures: defaultPlanFeatures, purchases: [] },
+        {
+          planFeatures: getBaselinePlanFeatures(),
+          purchases: [],
+        },
       ])
     );
   }
@@ -188,7 +196,8 @@ export const getPlanInfo = async (
         }
         return [
           {
-            ...(plansByName.get(product.name)?.features ?? defaultPlanFeatures),
+            ...(plansByName.get(product.name)?.features ??
+              getBaselinePlanFeatures()),
             ...parseProductMeta(product.meta),
           },
         ];

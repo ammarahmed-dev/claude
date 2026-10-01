@@ -13,3 +13,13 @@ Open **https://wstd.dev:5173/** (not `localhost`). `DEV_LOGIN=true` in `apps/bui
 enables the local dev login, so no GitHub app is needed.
 
 Tip: if `curl` is used inside a sandbox with a proxy, pass `--noproxy '*'`.
+
+## Gotchas
+
+- First page loads are slow (Vite compiles on demand) and may reload once ("Re-optimizing dependencies").
+  Wait for the editor rather than assuming it is broken.
+- The Docker daemon must stay running for the whole session; if `docker ps` fails, start `dockerd` again
+  and restart `pnpm dev`.
+- Component tests need a Chromium that matches the pinned Playwright. In a sandbox, point
+  `PLAYWRIGHT_BROWSERS_PATH` at a folder whose `chromium-1155` and `chromium_headless_shell-1155` are
+  symlinks to the installed browsers.

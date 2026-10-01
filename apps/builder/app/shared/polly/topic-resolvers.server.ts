@@ -1,7 +1,9 @@
 import { notification } from "@webstudio-is/project/index.server";
 import { db as dashboardDb } from "@webstudio-is/dashboard/index.server";
-import { getPlanInfo } from "@webstudio-is/plans/index.server";
-import { defaultPlanFeatures } from "@webstudio-is/plans";
+import {
+  getPlanInfo,
+  getBaselinePlanFeatures,
+} from "@webstudio-is/plans/index.server";
 import { publicStaticEnv } from "~/env/env.static";
 import type { TopicResolvers, TopicName, SubscriptionResponse } from "./types";
 
@@ -65,7 +67,7 @@ const resolvers: TopicResolvers = {
     for (const m of sharedWorkspaces) {
       const ownerId = (m.workspace as unknown as { userId: string }).userId;
       const features =
-        planResults.get(ownerId)?.planFeatures ?? defaultPlanFeatures;
+        planResults.get(ownerId)?.planFeatures ?? getBaselinePlanFeatures();
 
       if (features.maxWorkspaces <= 1) {
         return (m.workspace as unknown as { userId: string; name: string })

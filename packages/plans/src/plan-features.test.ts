@@ -1,9 +1,10 @@
-import { describe, test, expect } from "vitest";
+import { afterEach, beforeEach, describe, test, expect, vi } from "vitest";
 import {
   type PlanFeatures,
   type PlanConfig,
   defaultPlanFeatures,
   parsePlansEnv,
+  resolveDefaultPlanFeatures,
 } from "./plan-features";
 
 /** Full-featured plan for use in tests — all booleans true, numeric limits at max */
@@ -172,5 +173,43 @@ describe("parsePlansEnv", () => {
     expect(
       (result.get("Pro")!.features as Record<string, unknown>)["admin"]
     ).toBeUndefined();
+  });
+});
+
+describe("resolveDefaultPlanFeatures", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  test("uses the built-in free plan when nothing is configured", () => {
+    expect(resolveDefaultPlanFeatures(undefined)).toEqual(defaultPlanFeatures);
+    expect(resolveDefaultPlanFeatures("")).toEqual(defaultPlanFeatures);
+    expect(resolveDefaultPlanFeatures("   ")).toEqual(defaultPlanFeatures);
+  });
+
+  test("overrides only the listed features", () => {
+    const features = resolveDefaultPlanFeatures(
+      '{"allowDynamicData":true,"maxAssetsPerProject":100000}'
+    );
+    expect(features.allowDynamicData).toBe(true);
+    expect(features.maxAssetsPerProject).toBe(100000);
+    expect(features.allowAuth).toBe(defaultPlanFeatures.allowAuth);
+    expect(features.maxDailyPublishesPerUser).toBe(
+      defaultPlanFeatures.maxDailyPublishesPerUser
+    );
+  });
+
+  test.each([
+    ["unknown feature", '{"allowEverything":true}'],
+    ["wrong type", '{"allowDynamicData":"yes"}'],
+    ["negative limit", '{"maxAssetsPerProject":-1}'],
+    ["not an object", "[1,2]"],
+    ["invalid JSON", "{allowDynamicData:true"],
+  ])("ignores an invalid override: %s", (_name, raw) => {
+    expect(resolveDefaultPlanFeatures(raw)).toEqual(defaultPlanFeatures);
+    expect(console.error).toHaveBeenCalled();
   });
 });

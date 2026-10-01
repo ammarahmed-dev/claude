@@ -51,6 +51,35 @@ export const defaultPlanFeatures: PlanFeatures = {
   maxSeatsPerWorkspace: 0,
 };
 
+/**
+ * Resolve the baseline plan every account starts from.
+ *
+ * Self-hosted deployments set DEFAULT_PLAN_FEATURES to a JSON object of
+ * feature overrides, for example `{"allowDynamicData":true}`, so that accounts
+ * without a purchase are not limited to the hosted free tier. Unknown keys and
+ * wrongly typed values invalidate the override, which is then ignored.
+ */
+export const resolveDefaultPlanFeatures = (
+  raw: string | undefined
+): PlanFeatures => {
+  if (raw === undefined || raw.trim() === "") {
+    return defaultPlanFeatures;
+  }
+  try {
+    const result = planFeatures.partial().strict().safeParse(JSON.parse(raw));
+    if (result.success) {
+      return { ...defaultPlanFeatures, ...result.data };
+    }
+    console.error(
+      "Invalid DEFAULT_PLAN_FEATURES, using built-in defaults:",
+      result.error.flatten()
+    );
+  } catch {
+    console.error("DEFAULT_PLAN_FEATURES is not valid JSON, using defaults");
+  }
+  return defaultPlanFeatures;
+};
+
 /** All user purchases (subscriptions and LTDs). subscriptionId present only for recurring subscriptions */
 export type Purchase = {
   planName: string;
