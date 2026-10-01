@@ -30,7 +30,7 @@ export const Welcome = ({
           {permissions.canCreateProject && (
             <CreateProject
               workspaceId={currentWorkspaceId}
-              buttonText="Create a blank project"
+              buttonText="Create a blank site"
             />
           )}
         </Flex>

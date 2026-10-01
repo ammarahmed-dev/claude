@@ -37,7 +37,7 @@ import type { DashboardData } from "~/dashboard/shared/types";
 export const meta = () => {
   const metas: ReturnType<MetaFunction> = [];
 
-  metas.push({ title: "BD Flow Dashboard | Projects" });
+  metas.push({ title: "BD Flow Dashboard | Sites" });
 
   return metas;
 };

@@ -83,6 +83,23 @@ export const loadById = async (projectId: string, context: AppContext) => {
   };
 };
 
+/**
+ * Hosts without wildcard subdomains need every project address registered
+ * ahead of time. The `claim_project_id` database function hands out ids from
+ * a pre-registered pool; when it is missing or empty a random id is used.
+ */
+const claimProjectId = async (context: AppContext): Promise<string> => {
+  try {
+    const claimed = await context.postgrest.client.rpc("claim_project_id");
+    if (typeof claimed.data === "string" && claimed.data !== "") {
+      return claimed.data;
+    }
+  } catch {
+    // the pool is optional
+  }
+  return createId();
+};
+
 export const create = async (
   { title, workspaceId }: { title: string; workspaceId?: string },
   context: AppContext
@@ -99,7 +116,7 @@ export const create = async (
     throw new Error("The user must be authenticated to create a project");
   }
 
-  const projectId = createId();
+  const projectId = await claimProjectId(context);
 
   // When creating inside a workspace, the project is owned by the workspace
   // owner — not the creating user. This ensures the workspace owner retains

@@ -202,7 +202,7 @@ export const CreateProject = ({
             state={state === "idle" ? undefined : "pending"}
             type="submit"
           >
-            Create Project
+            Create Site
           </Button>
         }
       />

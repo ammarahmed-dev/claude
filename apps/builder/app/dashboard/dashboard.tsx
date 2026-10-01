@@ -221,7 +221,7 @@ export const Dashboard = () => {
     {
       to: dashboardPath("projects"),
       prefix: <BodyIcon />,
-      children: "Projects",
+      children: "Sites",
     },
   ];
 

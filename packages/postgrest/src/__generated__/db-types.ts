@@ -1080,6 +1080,10 @@ export type Database = {
       };
     };
     Functions: {
+      claim_project_id: {
+        Args: Record<PropertyKey, never>;
+        Returns: string;
+      };
       clone_project: {
         Args: {
           domain: string;
