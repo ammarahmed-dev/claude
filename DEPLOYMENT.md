@@ -100,6 +100,49 @@ Verified on 2026-10-01 against the local Docker Postgres/PostgREST: the producti
 (about 35 s) and the server starts and serves the login page. The default build (without
 `BUILDER_TARGET`) is unchanged.
 
+## Supabase project status (2026-10-01)
+
+Project `BD-Flow` (ref `tjtuyoonedogrwdqqimm`, region ap-northeast-2, Postgres 17). No secrets are
+stored in this repository; the access token and database password are supplied through the
+environment.
+
+Done and verified:
+
+- The Webstudio schema (19 tables, views, functions) is applied, and all 155 Prisma migrations are
+  recorded in `_prisma_migrations`, so a later `migrations migrate` run starts from the right place.
+- Every table has row-level security on and `anon`/`authenticated` have no grants. Checked through
+  the public REST address: the `anon` key gets "permission denied" on `Project` and `User`, and
+  the `service_role` key can read them.
+- The builder must use the `service_role` key server-side only. Never put it in browser code.
+
+Method, because raw Postgres connections (ports 5432/6543) are blocked from the sandbox: the schema
+was exported from the local Docker database (`pg_dump --schema=public --schema-only`), the line
+`CREATE SCHEMA public;` was removed, and the SQL was applied through the Supabase Management API
+(`POST /v1/projects/{ref}/database/query`). From a normal machine or a Render build step, run
+`pnpm --filter @webstudio-is/prisma-client migrations migrate --cwd ../../apps/builder` instead.
+
+Still to do for the database: file storage. Supabase's S3 access keys can only be created in the
+dashboard (Project Settings -> Storage -> S3 Connection -> New access key); the builder then needs
+`S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` and `S3_BUCKET`.
+
+## Dependence on Webstudio-hosted services
+
+Audited 2026-10-01 by searching the source and the generated site.
+
+- **No scripts or CDN assets are loaded from webstudio.is** by the editor or by published sites. No
+  analytics, tracking or third-party script tags were found, and the generated site has none.
+- **Published sites** ship their own JavaScript and downloaded assets. Their only npm dependencies are
+  the `@webstudio-is/*` packages, which come from this repository (`workspace:*`), not from a CDN.
+- **Branding link:** the built-in 404 page template contains a "Built with Webstudio" badge linking to
+  webstudio.is (`packages/sdk-components-registry/src/core-templates.tsx`). It is a plain link, but it
+  is their brand on your pages; remove it before launch.
+- **Hosted publisher:** the Publish button targets `*.wstd.work` through `TRPC_SERVER_URL`. Without that
+  service it cannot publish; use the CLI pipeline above.
+- **Links in the editor** (docs, pricing, template gallery, a promo banner, and a welcome video embedded
+  from YouTube) point at webstudio.is, wstd.us and youtube-nocookie.com. They only matter if clicked,
+  except the video, which loads from YouTube on the dashboard welcome screen.
+- **Not used unless configured:** `RESIZE_ORIGIN` (image/video resizing), `ENTRI_*` (custom domains).
+
 ## Not verified
 
 1. A full production login and editing session. The server serves pages, but logging in behind HTTPS
