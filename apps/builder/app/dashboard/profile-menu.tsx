@@ -109,7 +109,7 @@ export const ProfileMenu = ({ user }: { user: User }) => {
         {purchases.length === 0 && (
           <DropdownMenuItem
             onSelect={() => {
-              window.open("https://webstudio.is/pricing");
+              window.open("/dashboard");
             }}
             css={{ gap: theme.spacing[3] }}
           >

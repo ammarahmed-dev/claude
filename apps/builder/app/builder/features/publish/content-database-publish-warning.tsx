@@ -12,7 +12,7 @@ const missingAssetFix =
 
 const invalidMdxFixes = {
   "source-read-failed":
-    "Check that the asset is available in Content Assets, then run Validate again. If it still fails, investigate the document with Webstudio MCP: https://wstd.us/mcp.",
+    "Check that the asset is available in Content Assets, then run Validate again. If it still fails, investigate the document with BD Flow support: https://github.com/ammarahmed-dev/claude.",
   "missing-source": missingAssetFix,
   "missing-asset": missingAssetFix,
   "linked-document-unavailable":

@@ -140,7 +140,7 @@ export const createLink = ({
       if (href.startsWith("#")) {
         // Hash-only links should preserve the current search params. React Router
         // navigation rewrites them, so keep native anchor behavior and only add
-        // Webstudio's aria-current state.
+        // BD Flow's aria-current state.
         return <HashLink {...props} href={href} ref={ref} />;
       }
 

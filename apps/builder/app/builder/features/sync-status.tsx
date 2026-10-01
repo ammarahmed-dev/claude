@@ -151,12 +151,11 @@ export const SyncStatus = () => {
             {isOnline ? (
               <>
                 Experiencing connectivity issues. Your changes will be synced
-                with Webstudio once resolved.
+                with BD Flow once resolved.
               </>
             ) : (
               <>
-                Offline changes will be synced with Webstudio once you go
-                online.
+                Offline changes will be synced with BD Flow once you go online.
                 <br />
                 Please check your internet connection.
               </>

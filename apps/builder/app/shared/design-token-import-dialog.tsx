@@ -80,7 +80,7 @@ export const DesignTokenImportDialog = () => {
         <DialogTitle>Import tokens</DialogTitle>
         <PanelContent as={Flex} direction="column" gap="2">
           <DialogDescription>
-            Choose how these tokens should be represented in Webstudio.
+            Choose how these tokens should be represented in BD Flow.
           </DialogDescription>
           <DialogRadioOptions
             value={target}

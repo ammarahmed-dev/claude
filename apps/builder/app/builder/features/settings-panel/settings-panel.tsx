@@ -53,11 +53,7 @@ export const SettingsPanel = ({
           </Text>
           <Flex align="center" gap={1}>
             <UpgradeIcon />
-            <Link
-              color="inherit"
-              target="_blank"
-              href="https://webstudio.is/pricing"
-            >
+            <Link color="inherit" target="_blank" href="/dashboard">
               Upgrade to Pro
             </Link>
           </Flex>

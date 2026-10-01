@@ -51,12 +51,12 @@ export const getPublishValidationErrorMessage = (
               .replaceAll(" / ", " > ")}`;
       return [
         `Publish validation couldn’t read “${formatAssetName(asset)}” in ${location}.`,
-        "Try again. If it continues, investigate this document with Webstudio MCP:",
-        "https://wstd.us/mcp",
+        "Try again. If it continues, investigate this document with BD Flow support:",
+        "https://github.com/ammarahmed-dev/claude",
         `Document ID: ${documentId}.`,
       ].join(" ");
     }
-    return `Publish validation couldn’t read a linked file in Content Assets. Try again. If it continues, investigate this document with Webstudio MCP: https://wstd.us/mcp. Document ID: ${documentId}.`;
+    return `Publish validation couldn’t read a linked file in Content Assets. Try again. If it continues, investigate this document with BD Flow support: https://github.com/ammarahmed-dev/claude. Document ID: ${documentId}.`;
   }
   return message ?? "Publish validation failed";
 };

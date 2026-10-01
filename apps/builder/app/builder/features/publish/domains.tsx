@@ -479,7 +479,7 @@ const DomainItem = ({
                 one TXT record with the values shown below.{" "}
                 <Link
                   color="inherit"
-                  href="https://docs.webstudio.is/university/foundations/publishing-and-custom-domains"
+                  href="https://github.com/ammarahmed-dev/claude"
                   target="_blank"
                   rel="noreferrer"
                 >

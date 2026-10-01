@@ -89,7 +89,7 @@ export const startSubscription = () => {
             .get()
             .some((n) => newIds.has(n.id));
           if (hasUnresolvedNewNotification) {
-            showBrowserNotification("Webstudio", {
+            showBrowserNotification("BD Flow", {
               body: "You have new notifications",
               showWhenFocused: true,
             });
@@ -97,7 +97,7 @@ export const startSubscription = () => {
         }, NEW_NOTIFICATIONS_TOAST_DURATION);
         pendingBrowserNotificationTimeouts.add(timeoutId);
       } else {
-        showBrowserNotification("Webstudio", {
+        showBrowserNotification("BD Flow", {
           body: "You have new notifications",
         });
       }
@@ -122,17 +122,17 @@ export const startSubscription = () => {
   manager.subscribe("builderVersion", (serverVersion) => {
     if (serverVersion !== publicStaticEnv.VERSION) {
       const message =
-        "A new version of Webstudio is available. Reload to get the latest - see what's new at https://wstd.us/changelog";
+        "A new version of BD Flow is available. Reload to get the latest - see what's new at https://github.com/ammarahmed-dev/claude";
       toast.info(
         <>
-          A new version of Webstudio is available. Reload to get the latest —
-          see what&apos;s new at{" "}
+          A new version of BD Flow is available. Reload to get the latest — see
+          what&apos;s new at{" "}
           <Link
-            href="https://wstd.us/changelog"
+            href="https://github.com/ammarahmed-dev/claude"
             target="_blank"
             rel="noopener noreferrer"
           >
-            wstd.us/changelog
+            github.com/ammarahmed-dev/claude
           </Link>
         </>,
         {

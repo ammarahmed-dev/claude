@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import {
-  Box,
   Flex,
   List,
   ListItem,
@@ -8,9 +7,7 @@ import {
   TooltipProvider,
   Toaster,
   theme,
-  PanelBanner,
   Link,
-  LinkButton,
   Separator,
   Grid,
   IconButton,
@@ -288,22 +285,6 @@ export const Dashboard = () => {
               </CollapsibleSection>
             )}
           </nav>
-          <Box css={{ paddingTop: theme.spacing[5] }}>
-            <PanelBanner variant="neutral">
-              <Text variant="titles">Inception is live</Text>
-              <Text color="subtle">
-                An AI-powered design tool to explore ideas and instantly
-                generate HTML/CSS for Webstudio Builder or any other platform.
-              </Text>
-              <LinkButton
-                color="primary"
-                href="https://wstd.us/inception"
-                target="_blank"
-              >
-                Get started with Inception
-              </LinkButton>
-            </PanelBanner>
-          </Box>
           <CollapsibleSection label="Help & support" fullWidth>
             <NavigationItems
               items={help.map((item) => ({

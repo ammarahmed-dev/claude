@@ -263,7 +263,7 @@ const TypeField = ({
           {allowDynamicData === false && <ProChip>Pro</ProChip>}
         </Flex>
       ),
-      description: "A system resource is a configuration for Webstudio data.",
+      description: "A system resource is a configuration for BD Flow data.",
     },
   ];
   const options = new Map(optionsList.map((option) => [option.value, option]));

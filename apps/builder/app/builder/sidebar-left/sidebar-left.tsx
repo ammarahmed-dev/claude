@@ -59,7 +59,7 @@ const HelpTabTrigger = () => {
   return (
     <HelpCenter>
       <HelpCenter.Trigger asChild>
-        <SidebarButton label="Learn Webstudio or ask for help">
+        <SidebarButton label="Learn BD Flow or ask for help">
           <HelpIcon size={rawTheme.spacing[10]} />
         </SidebarButton>
       </HelpCenter.Trigger>

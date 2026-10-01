@@ -303,7 +303,7 @@ export const Menu = ({ defaultOpen }: { defaultOpen?: boolean } = {}) => {
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onSelect={() => {
-                window.open("https://webstudio.is/pricing");
+                window.open("/dashboard");
               }}
               css={{ gap: theme.spacing[3] }}
             >

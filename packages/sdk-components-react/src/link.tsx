@@ -39,7 +39,7 @@ const getCurrentUrl = (value: string | URL | undefined) => {
 };
 
 /**
- * Plain Webstudio anchor implementation.
+ * Plain BD Flow anchor implementation.
  *
  * Used by base components, SSG, builder preview, and framework-link fallbacks.
  * It owns current-link styling for native anchors, while framework packages

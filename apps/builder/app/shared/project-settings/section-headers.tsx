@@ -104,7 +104,7 @@ export const SectionHeaders = ({
               </Text>
               <br />
               <Text>
-                /* applies to every path; / applies only to the root. Webstudio
+                /* applies to every path; / applies only to the root. BD Flow
                 Cloud supplies CSP, X-Frame-Options, and Referrer-Policy when
                 they are not set. X-Powered-By, X-Content-Type-Options, and
                 Strict-Transport-Security are managed by the platform and cannot
@@ -121,7 +121,7 @@ export const SectionHeaders = ({
                   <LinkButton
                     color="primary"
                     css={{ marginTop: theme.spacing[5], width: "100%" }}
-                    href="https://webstudio.is/pricing"
+                    href="/dashboard"
                     target="_blank"
                   >
                     Upgrade

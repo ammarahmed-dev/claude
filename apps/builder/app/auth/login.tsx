@@ -51,7 +51,7 @@ export const Login = ({
       >
         <WebstudioIcon size={48} />
         <Text variant="brandSectionTitle" as="h1" align="center">
-          Welcome to Webstudio
+          Welcome to BD Flow
         </Text>
 
         <TooltipProvider>

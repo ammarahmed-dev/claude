@@ -69,7 +69,7 @@ const PathField = ({
                     color="primary"
                     css={{ marginTop: theme.spacing[5], width: "100%" }}
                     target="_blank"
-                    href="https://webstudio.is/pricing"
+                    href="/dashboard"
                   >
                     Upgrade
                   </LinkButton>
@@ -223,7 +223,7 @@ const RedirectField = ({
                     color="primary"
                     css={{ marginTop: theme.spacing[5], width: "100%" }}
                     target="_blank"
-                    href="https://webstudio.is/pricing"
+                    href="/dashboard"
                   >
                     Upgrade
                   </LinkButton>

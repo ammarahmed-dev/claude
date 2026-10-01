@@ -2,7 +2,7 @@
 // https://github.com/slightlyoff/lite-vimeo
 // Main reasons to not use it as is:
 // - we don't want to render player by default
-// - we want to expose Webstudio components to the user for customization
+// - we want to expose BD Flow components to the user for customization
 
 import { colord } from "colord";
 import {
@@ -109,7 +109,7 @@ const getVideoUrl = (options: VimeoOptions) => {
     url.searchParams.append(mappedOption, value.toString());
   }
 
-  // We always set autoplay to true because we render the iframe only after user hits Webstudio play button.
+  // We always set autoplay to true because we render the iframe only after user hits BD Flow play button.
   url.searchParams.set("autoplay", "true");
 
   // Vimeo needs a hex color value without the hash

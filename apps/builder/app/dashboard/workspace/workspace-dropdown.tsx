@@ -242,7 +242,7 @@ export const WorkspaceSelector = ({
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onSelect={() => {
-                window.open("https://webstudio.is/pricing");
+                window.open("/dashboard");
               }}
             >
               <Flex align="center" gap="1">

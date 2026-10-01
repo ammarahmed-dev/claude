@@ -33,7 +33,7 @@ export const links: LinksFunction = () => {
     },
     {
       rel: "canonical",
-      href: "https://apps.webstudio.is/login",
+      href: "/login",
     },
   ];
 };
@@ -42,16 +42,16 @@ export const meta: MetaFunction<typeof loader> = () => {
   const metas: ReturnType<MetaFunction> = [
     {
       name: "title",
-      content: "Webstudio login",
+      content: "BD Flow login",
     },
     {
       name: "description",
-      content: "Log in to Webstudio to start creating websites.",
+      content: "Log in to BD Flow to start creating websites.",
     },
     { name: "robots", content: "index, follow" },
   ];
 
-  metas.push({ title: "Webstudio login" });
+  metas.push({ title: "BD Flow login" });
 
   return metas;
 };

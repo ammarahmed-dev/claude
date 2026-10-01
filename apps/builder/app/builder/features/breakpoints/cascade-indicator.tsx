@@ -5,7 +5,7 @@ import type { Breakpoint, Breakpoints } from "@webstudio-is/sdk";
 import { $breakpoints } from "~/shared/sync/data-stores";
 import { isBaseBreakpoint } from "@webstudio-is/project-build/runtime";
 
-// Fixed Webstudio visualization, intentionally independent of the UI theme.
+// Fixed BD Flow visualization, intentionally independent of the UI theme.
 const gradientLeft = "linear-gradient(90deg, #4a4efa 0%, #bd2fdb 100%)";
 const gradientRight = "linear-gradient(90deg, #bd2fdb 0%, #4a4efa 100%)";
 

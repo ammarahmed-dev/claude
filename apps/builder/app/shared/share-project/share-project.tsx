@@ -54,7 +54,7 @@ const Item = (props: ComponentProps<typeof Flex>) => (
 const UpgradeLink = () => (
   <Flex align="center" gap={1}>
     <UpgradeIcon />
-    <Link color="inherit" target="_blank" href="https://webstudio.is/pricing">
+    <Link color="inherit" target="_blank" href="/dashboard">
       Upgrade
     </Link>
   </Flex>

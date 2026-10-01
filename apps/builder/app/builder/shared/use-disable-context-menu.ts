@@ -4,7 +4,7 @@ import { useEffect } from "react";
  * Disables the default browser context menu throughout the application,
  * except for interactive elements like links, inputs, textareas, etc.
  *
- * Users expect to see Webstudio's custom context menu when right-clicking,
+ * Users expect to see BD Flow's custom context menu when right-clicking,
  * not the browser's default menu. This hook prevents confusion by ensuring
  * only the application's context menu appears, while still allowing the
  * browser menu for interactive elements where it's useful (e.g., copy/paste

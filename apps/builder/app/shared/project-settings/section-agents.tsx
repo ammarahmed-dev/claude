@@ -23,7 +23,7 @@ export const SectionAgents = () => {
         <Text variant="titles">Agents</Text>
         <Tooltip
           variant="wrapped"
-          content="Give AI coding agents project-specific guidance. When you sync the project locally, Webstudio writes these instructions to a managed AGENTS.md in the project root. An existing user-owned AGENTS.md is never overwritten."
+          content="Give AI coding agents project-specific guidance. When you sync the project locally, BD Flow writes these instructions to a managed AGENTS.md in the project root. An existing user-owned AGENTS.md is never overwritten."
         >
           <InfoCircleIcon
             color={cssVar("--foreground-secondary")}

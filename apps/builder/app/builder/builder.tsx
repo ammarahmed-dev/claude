@@ -92,7 +92,7 @@ import { useDisableContextMenu } from "./shared/use-disable-context-menu";
 const useSetWindowTitle = () => {
   const project = useStore($project);
   useEffect(() => {
-    document.title = `${project?.title} | Webstudio`;
+    document.title = `${project?.title} | BD Flow`;
   }, [project?.title]);
 };
 

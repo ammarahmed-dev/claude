@@ -146,10 +146,7 @@ export const Projects = (props: ProjectsProps) => {
             </ToggleGroupButton>
           </ToggleGroup>
           <SortSelect value={sortState} onValueChange={handleSortChange} />
-          <LinkButton
-            href="https://webstudio.is/marketplace/templates/"
-            target="_blank"
-          >
+          <LinkButton href="/dashboard" target="_blank">
             Use template
           </LinkButton>
           {permissions.canCreateProject && (

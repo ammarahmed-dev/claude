@@ -298,7 +298,7 @@ const reportPublishValidationFailure = (
     toast.error(message);
     return;
   }
-  const mcpUrl = "https://wstd.us/mcp";
+  const mcpUrl = "https://github.com/ammarahmed-dev/claude";
   const mcpUrlIndex = message.indexOf(mcpUrl);
   const details =
     mcpUrlIndex === -1 ? (
@@ -307,7 +307,7 @@ const reportPublishValidationFailure = (
       <>
         {message.slice(0, mcpUrlIndex)}
         <Link href={mcpUrl} target="_blank" rel="noreferrer">
-          Webstudio MCP
+          BD Flow support
         </Link>
         {message.slice(mcpUrlIndex + mcpUrl.length)}
       </>
@@ -712,8 +712,8 @@ const Publish = ({
               <span>Build data</span>
             </Tooltip>{" "}
             for publishing has been successfully created. Use{" "}
-            <Link href="https://docs.webstudio.is/university/self-hosting/cli">
-              Webstudio&nbsp;CLI
+            <Link href="https://github.com/ammarahmed-dev/claude">
+              BD Flow&nbsp;CLI
             </Link>{" "}
             to generate the code.
           </>
@@ -1117,11 +1117,7 @@ const UpgradeBanner = ({ hasCustomDomains }: { hasCustomDomains: boolean }) => {
         <Text variant="regularBold">
           Upgrade to publish more than {maxDailyPublishesPerUser} times per day:
         </Text>
-        <LinkButton
-          color="primary"
-          href="https://webstudio.is/pricing"
-          target="_blank"
-        >
+        <LinkButton color="primary" href="/dashboard" target="_blank">
           Upgrade
         </LinkButton>
       </PanelBanner>
@@ -1178,11 +1174,7 @@ const UpgradeBanner = ({ hasCustomDomains }: { hasCustomDomains: boolean }) => {
         </Text>
         <Flex align="center" gap={1}>
           <UpgradeIcon />
-          <Link
-            color="inherit"
-            target="_blank"
-            href="https://webstudio.is/pricing"
-          >
+          <Link color="inherit" target="_blank" href="/dashboard">
             Upgrade to Pro
           </Link>
         </Flex>
@@ -1200,11 +1192,7 @@ const UpgradeBanner = ({ hasCustomDomains }: { hasCustomDomains: boolean }) => {
         </Text>
         <Flex align="center" gap={1}>
           <UpgradeIcon />
-          <Link
-            color="inherit"
-            target="_blank"
-            href="https://webstudio.is/pricing"
-          >
+          <Link color="inherit" target="_blank" href="/dashboard">
             Upgrade to Pro
           </Link>
         </Flex>
@@ -1423,7 +1411,7 @@ const ExportContent = (props: { projectId: Project["id"] }) => {
             <Link
               variant="inherit"
               color="inherit"
-              href="https://wstd.us/ssg"
+              href="https://github.com/ammarahmed-dev/claude"
               target="_blank"
               rel="noreferrer"
             >
@@ -1481,7 +1469,7 @@ const ExportContent = (props: { projectId: Project["id"] }) => {
                 Step 2
               </Text>
               <Text color="subtle">
-                Run this command in your Terminal to install Webstudio CLI and
+                Run this command in your Terminal to install BD Flow CLI and
                 sync your project.
               </Text>
             </Grid>
@@ -1545,7 +1533,7 @@ const ExportContent = (props: { projectId: Project["id"] }) => {
               <Link
                 variant="inherit"
                 color="inherit"
-                href="https://wstd.us/cli"
+                href="https://github.com/ammarahmed-dev/claude"
                 target="_blank"
                 rel="noreferrer"
               >
@@ -1597,7 +1585,7 @@ export const PublishButton = ({ projectId }: PublishProps) => {
     >
       <Tooltip
         side="bottom"
-        content={tooltipContent ?? "Publish to Webstudio Cloud"}
+        content={tooltipContent ?? "Publish to BD Flow"}
         sideOffset={Number.parseFloat(rawTheme.spacing[5])}
       >
         <PopoverTrigger asChild>

@@ -25,7 +25,7 @@ const useTooSmallMessage = () => {
     const message =
       window.innerWidth >= minWidth
         ? undefined
-        : `Your browser window is too small. Resize your browser to at least ${minWidth}px wide to continue building with Webstudio.`;
+        : `Your browser window is too small. Resize your browser to at least ${minWidth}px wide to continue building with BD Flow.`;
     setMessage(message);
   };
 
@@ -64,7 +64,7 @@ export const UnsupportedBrowserDialog = ({
       <DialogTitle>Unsupported browser</DialogTitle>
       <DialogDescription asChild>
         <PanelContent as={Text}>
-          The Webstudio Builder UI currently supports any{" "}
+          The BD Flow Builder UI currently supports any{" "}
           <Link
             href="https://en.wikipedia.org/wiki/Chromium_(web_browser)"
             target="_blank"

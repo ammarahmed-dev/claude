@@ -119,7 +119,7 @@ const blockMeta: TemplateMeta = {
       <p>
         The Content Block component designates regions on the page where
         pre-styled instances can be inserted in{" "}
-        <a href="https://wstd.us/content-block">Content mode</a>.
+        <a href="https://github.com/ammarahmed-dev/claude">Content mode</a>.
       </p>
       <ul>
         <li>
@@ -144,12 +144,12 @@ const blockMeta: TemplateMeta = {
 const builtWithWebstudioMeta: TemplateMeta = {
   category: "other",
   description:
-    "A “Built with Webstudio” badge should be added to every project page on the free plan. This helps Webstudio spread awareness as a platform.",
+    "A “Built with BD Flow” badge should be added to every project page on the free plan. This helps BD Flow spread awareness as a platform.",
   icon: Webstudio1cIcon,
   template: setInstanceMeta(
-    { label: "Built with Webstudio" },
+    { label: "Built with BD Flow" },
     <a
-      href="https://webstudio.is/?via=badge"
+      href="/"
       target="_blank"
       ws:style={css`
         display: inline-flex;
@@ -195,7 +195,7 @@ const builtWithWebstudioMeta: TemplateMeta = {
           `}
         />
       )}
-      {setInstanceMeta({ label: "Text" }, <div>Built with Webstudio</div>)}
+      {setInstanceMeta({ label: "Text" }, <div>Built with BD Flow</div>)}
     </a>
   ),
 };

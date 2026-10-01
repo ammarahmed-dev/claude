@@ -1,4 +1,4 @@
-// Data utilities own access to Webstudio's instance-related stores and
+// Data utilities own access to BD Flow's instance-related stores and
 // transaction boundaries. Put generic store reads/writes and content-mode data
 // guards here, not tree-shape mutations.
 import { toast } from "@webstudio-is/design-system";

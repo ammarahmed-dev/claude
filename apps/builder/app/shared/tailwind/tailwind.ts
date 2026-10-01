@@ -416,7 +416,7 @@ const normalizeUnoCssValues = (css: string, finalVars: Map<string, string>) => {
 const normalizeUnoCssForWebstudio = (generatedCss: string) => {
   // UnoCSS uses the --un-* namespace. Keep generated CSS in Tailwind's
   // namespace so custom properties match familiar Tailwind output and existing
-  // Webstudio styles.
+  // BD Flow styles.
   const css = generatedCss.replaceAll("--un-", "--tw-");
 
   // Normalize CSS custom property values: when the same var is declared in
