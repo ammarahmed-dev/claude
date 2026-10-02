@@ -32,7 +32,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const email =
     typeof emailRaw === "string" && emailRaw.trim() !== ""
       ? emailRaw.trim()
-      : "hello@webstudio.is";
+      : "dev@bdflow.local";
 
   try {
     await authenticator.authenticate("dev", request, {

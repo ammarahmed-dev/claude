@@ -46,7 +46,7 @@ const environment = z.object({
   ENTRI_APPLICATION_ID: z.string().default("webstudio"),
   ENTRI_SECRET: z.string().optional(),
 
-  PUBLISHER_HOST: z.string().default("wstd.work"),
+  PUBLISHER_HOST: z.string().default("bdflow.local"),
 
   STAGING_USERNAME: z.string().default("admin"),
   STAGING_PASSWORD: z.string().default("webstudio"),

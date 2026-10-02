@@ -190,7 +190,7 @@ export const workspaceRouter = router({
         }
         if (inviteeResult.data === null) {
           throw new Error(
-            "No Webstudio account found. The user needs to sign up first."
+            "No BD Flow account found. The user needs to sign up first."
           );
         }
         const existingMemberResult = await ctx.postgrest.client

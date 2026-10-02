@@ -65,7 +65,7 @@ export const $marketplaceProduct = atom<undefined | MarketplaceProduct>();
 
 export const $projectSettings = atom<undefined | ProjectSettings>();
 
-export const $publisherHost = atom<string>("wstd.work");
+export const $publisherHost = atom<string>("bdflow.local");
 
 export const readBuilderStateStores = () => ({
   pages: $pages.get(),
@@ -102,7 +102,7 @@ const getInitialDataStoreValues = () => ({
   styles: new Map(),
   marketplaceProduct: undefined,
   projectSettings: undefined,
-  publisherHost: "wstd.work",
+  publisherHost: "bdflow.local",
 });
 
 /**

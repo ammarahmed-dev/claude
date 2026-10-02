@@ -100,7 +100,7 @@ if (env.DEV_LOGIN === "true") {
       const email =
         emailValue != null && emailValue.toString().trim() !== ""
           ? emailValue.toString().trim()
-          : "hello@webstudio.is";
+          : "dev@bdflow.local";
 
       if (secret === env.AUTH_SECRET) {
         try {

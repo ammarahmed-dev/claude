@@ -74,7 +74,7 @@ import {
 } from "../external-content-mutations";
 
 const invalidPasteDataMessage =
-  "Could not paste Webstudio instance data. The clipboard data appears to be incomplete or invalid.";
+  "Could not paste BD Flow instance data. The clipboard data appears to be incomplete or invalid.";
 
 const getTreeData = async (
   instanceSelector: InstanceSelector,

@@ -49,7 +49,7 @@ import {
 } from "./content-block-fragment";
 
 const invalidPasteDataMessage =
-  "Could not paste Webstudio page data. The clipboard data appears to be incomplete or invalid.";
+  "Could not paste BD Flow page data. The clipboard data appears to be incomplete or invalid.";
 
 const stringify = (
   data: PageTransferItem,

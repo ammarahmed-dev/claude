@@ -27,7 +27,7 @@ const handlePasteJsx = async (source: string) => {
       error:
         error instanceof Error
           ? error.message
-          : "Could not paste Webstudio JSX fragment.",
+          : "Could not paste BD Flow JSX fragment.",
     } as const;
   }
 };

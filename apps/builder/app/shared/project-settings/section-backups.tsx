@@ -14,15 +14,11 @@ import {
   Flex,
   toast,
   PanelBanner,
-  Link,
-  rawTheme,
 } from "@webstudio-is/design-system";
-import { UpgradeIcon } from "@webstudio-is/icons";
 import { nativeClient, trpcClient } from "~/shared/trpc/trpc-client";
 import { $project } from "~/shared/sync/data-stores";
 import { $permissions } from "~/shared/nano-states";
 import { sectionSpacing } from "./utils";
-import cmsUpgradeBanner from "../cms-upgrade-banner.svg?url";
 
 const formatPublishDate = (date: string) => {
   try {
@@ -126,19 +122,9 @@ export const SectionBackups = ({
       </Dialog>
       {canRestoreBackups === false && (
         <PanelBanner>
-          <img
-            src={cmsUpgradeBanner}
-            alt="Upgrade for backups"
-            width={rawTheme.spacing[28]}
-            style={{ aspectRatio: "4.1" }}
-          />
-          <Text variant="regularBold">Upgrade to restore from backups</Text>
-          <Flex align="center" gap={1}>
-            <UpgradeIcon />
-            <Link color="inherit" target="_blank" href="/dashboard">
-              Upgrade to Pro
-            </Link>
-          </Flex>
+          <Text variant="regularBold">
+            Backups are not available on this plan
+          </Text>
         </PanelBanner>
       )}
     </Grid>

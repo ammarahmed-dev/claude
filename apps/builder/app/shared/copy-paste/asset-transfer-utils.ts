@@ -8,7 +8,7 @@ import { replaceAssetMutable } from "@webstudio-is/project-build/runtime";
 import type { builderApi } from "../builder-api";
 
 const assetTransferError =
-  "Could not transfer assets from the source Webstudio deployment. Make sure it is reachable and try again.";
+  "Could not transfer assets from the source BD Flow deployment. Make sure it is reachable and try again.";
 
 export const transferFragmentAssets = async ({
   sourceOrigin,
