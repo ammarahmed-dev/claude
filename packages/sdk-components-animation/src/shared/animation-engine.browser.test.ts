@@ -138,3 +138,71 @@ describe("view animation with a duration", () => {
     stop();
   });
 });
+
+describe("split text and stagger", () => {
+  const groupWith = (inner: HTMLElement) => {
+    const wrapper = document.createElement("div");
+    wrapper.style.display = "contents";
+    wrapper.append(inner);
+    document.body.append(wrapper);
+    return wrapper;
+  };
+
+  test("split text animates each character and restores the text", () => {
+    const text = document.createElement("div");
+    text.setAttribute("data-bdflow-parts", "text");
+    text.dataset.bdflowSplit = "char";
+    text.dataset.bdflowWindow = "1";
+    const heading = document.createElement("h1");
+    heading.textContent = "Hi yo";
+    text.append(heading);
+    const wrapper = groupWith(text);
+
+    const stop = startAnimationAction(wrapper, {
+      type: "load",
+      animations: [{ ...fade, timing: { duration: ms(400) } }],
+    });
+    const parts = text.querySelectorAll("[data-bdflow-part]");
+    expect(parts).toHaveLength(4);
+    expect(heading.textContent).toBe("Hi yo");
+    expect(text.getAttribute("aria-label")).toBe("Hi yo");
+    // part i runs from i/4 to (i+1)/4 of the timeline
+    Array.from(parts).forEach((part, index) => {
+      const effect = part.getAnimations()[0]?.effect as
+        | KeyframeEffect
+        | undefined;
+      const offsets = (effect?.getKeyframes() ?? []).map((keyframe) =>
+        Number(keyframe.offset?.toFixed(4))
+      );
+      expect(offsets).toContain(Number((index / 4).toFixed(4)));
+      expect(offsets).toContain(Number(((index + 1) / 4).toFixed(4)));
+    });
+
+    stop();
+    expect(text.querySelectorAll("[data-bdflow-part]")).toHaveLength(0);
+    expect(heading.innerHTML).toBe("Hi yo");
+    expect(text.hasAttribute("aria-label")).toBe(false);
+  });
+
+  test("stagger animates children one after another and clicks reach the container", () => {
+    const list = document.createElement("div");
+    list.setAttribute("data-bdflow-parts", "children");
+    list.dataset.bdflowWindow = "1";
+    for (const label of ["a", "b", "c"]) {
+      const item = document.createElement("div");
+      item.textContent = label;
+      list.append(item);
+    }
+    const wrapper = groupWith(list);
+    const stop = startAnimationAction(wrapper, {
+      type: "click",
+      animations: [{ ...fade, timing: { duration: ms(300) } }],
+    });
+    expect(list.children[0].getAnimations()).toHaveLength(0);
+    (list.children[1] as HTMLElement).click();
+    for (const item of Array.from(list.children)) {
+      expect(item.getAnimations()).toHaveLength(1);
+    }
+    stop();
+  });
+});

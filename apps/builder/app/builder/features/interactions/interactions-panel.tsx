@@ -4,6 +4,7 @@ import type { Instance } from "@webstudio-is/sdk";
 import {
   $registeredComponentMetas,
   $selectedInstancePath,
+  $selectedInstanceSelector,
   selectInstance,
 } from "~/shared/nano-states";
 import { wrapInstance } from "~/shared/instance-utils/mutation";
@@ -16,12 +17,22 @@ import { SettingsPanel } from "~/builder/features/settings-panel";
 export const interactionKinds = [
   {
     name: "AnimateChildren",
-    label: "Add animation",
+    label: "Animate element",
     description:
       "Animate the element on page load, as it scrolls into view, while scrolling, on click or on hover.",
   },
-  // Text, stagger and video animations are listed again once they have a
-  // runtime; upstream ships them as empty placeholders.
+  {
+    name: "AnimateText",
+    label: "Split text animation",
+    description:
+      "Animate text letter by letter or word by word. Works on headings and paragraphs.",
+  },
+  {
+    name: "StaggerAnimation",
+    label: "Stagger children",
+    description:
+      "Animate the items inside this element one after another, such as cards in a grid.",
+  },
 ] as const;
 
 type KnownInteractionName =
@@ -78,6 +89,35 @@ export const InteractionsPanel = ({
       ? undefined
       : getInteractionName(components, parent.instance.component);
 
+  const groupComponent = findInteractionComponent(
+    components,
+    "AnimateChildren"
+  );
+
+  /**
+   * Split text and stagger need an Animation Group around them: the group
+   * holds the trigger and keyframes, the inner wrapper splits the content.
+   */
+  const addInteraction = (name: InteractionName, component: string) => {
+    if (name === "AnimateChildren" || parentKind === "AnimateChildren") {
+      wrapInstance(component);
+      return;
+    }
+    const elementId = path?.[0]?.instance.id;
+    if (groupComponent === undefined || elementId === undefined) {
+      return;
+    }
+    wrapInstance(groupComponent);
+    const groupSelector = $selectedInstanceSelector.get();
+    if (groupSelector === undefined || groupSelector[0] === elementId) {
+      return;
+    }
+    selectInstance([elementId, ...groupSelector]);
+    wrapInstance(component);
+    // land on the group, where the trigger and animation are set
+    selectInstance(groupSelector);
+  };
+
   if (path === undefined || path.length === 1) {
     return (
       <Text color="subtle" css={{ padding: theme.panel.paddingInline }}>
@@ -88,11 +128,30 @@ export const InteractionsPanel = ({
 
   if (ownKind !== undefined) {
     return (
-      <SettingsPanel
-        key={selectedInstance.id}
-        selectedInstance={selectedInstance}
-        selectedInstanceKey={selectedInstanceKey}
-      />
+      <>
+        {ownKind !== "AnimateChildren" &&
+          parentKind === "AnimateChildren" &&
+          parent !== undefined && (
+            <Grid gap={2} css={{ padding: theme.panel.paddingInline }}>
+              <Text color="subtle">
+                These settings choose how the content is split. The trigger and
+                keyframes are on the Animation Group around it.
+              </Text>
+              <Button
+                color="neutral"
+                onClick={() => selectInstance(parent.instanceSelector)}
+                css={{ justifySelf: "start" }}
+              >
+                Edit trigger and keyframes
+              </Button>
+            </Grid>
+          )}
+        <SettingsPanel
+          key={selectedInstance.id}
+          selectedInstance={selectedInstance}
+          selectedInstanceKey={selectedInstanceKey}
+        />
+      </>
     );
   }
 
@@ -125,7 +184,7 @@ export const InteractionsPanel = ({
             <Flex key={kind.name} direction="column" gap="1">
               <Button
                 color="neutral"
-                onClick={() => wrapInstance(component)}
+                onClick={() => addInteraction(kind.name, component)}
                 css={{ justifySelf: "start" }}
               >
                 {kind.label}

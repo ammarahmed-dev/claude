@@ -49,7 +49,18 @@ export const AnimateText = forwardRef<ElementRef<"div">, AnimateChildrenProps>(
     { slidingWindow = 5, easing = "linear", splitBy = "char", ...props },
     ref
   ) => {
-    return <div ref={ref} {...props} />;
+    // The Animation Group around this element splits the text and animates
+    // each piece; these attributes tell it how.
+    return (
+      <div
+        ref={ref}
+        data-bdflow-parts="text"
+        data-bdflow-split={splitBy}
+        data-bdflow-window={slidingWindow}
+        data-bdflow-easing={easing}
+        {...props}
+      />
+    );
   }
 );
 

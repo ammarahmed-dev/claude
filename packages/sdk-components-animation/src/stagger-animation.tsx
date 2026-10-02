@@ -37,8 +37,17 @@ export const StaggerAnimation = forwardRef<
   ElementRef<"div">,
   StaggerAnimationProps
 >(({ slidingWindow = 1, easing = "linear", ...props }, ref) => {
-  // Implementation is located in private-src
-  return <div ref={ref} {...props} />;
+  // The Animation Group around this element animates its children one after
+  // another; these attributes tell it how.
+  return (
+    <div
+      ref={ref}
+      data-bdflow-parts="children"
+      data-bdflow-window={slidingWindow}
+      data-bdflow-easing={easing}
+      {...props}
+    />
+  );
 });
 
 const displayName = "StaggerAnimation";

@@ -1,4 +1,11 @@
 import { toValue, type StyleValue } from "@webstudio-is/css-engine";
+import {
+  easingCurves,
+  getPartRange,
+  remapKeyframes,
+  splitTextIntoParts,
+  type SplitMode,
+} from "./animation-parts";
 import type {
   AnimationAction,
   AnimationKeyframe,
@@ -93,10 +100,65 @@ export const toTimeTiming = (timing: Timing): KeyframeAnimationOptions => ({
       : (timing.iterations ?? 1),
 });
 
-const getTargets = (wrapper: HTMLElement) =>
-  Array.from(wrapper.children).filter(
-    (child): child is HTMLElement => child instanceof HTMLElement
-  );
+/**
+ * One element to animate. `subject` is the element whose visibility, clicks
+ * or hover drive it; for split text and stagger parts that is their container.
+ * `start` and `end` place the part on the shared timeline.
+ */
+type AnimationTarget = {
+  element: HTMLElement;
+  subject: HTMLElement;
+  start: number;
+  end: number;
+  easing?: string;
+};
+
+/** Split text and stagger containers mark themselves with these attributes. */
+export const partsAttribute = "data-bdflow-parts";
+
+const getAnimationTargets = (
+  wrapper: HTMLElement
+): { targets: AnimationTarget[]; restore: Cleanup } => {
+  const targets: AnimationTarget[] = [];
+  const restores: Cleanup[] = [];
+  for (const child of Array.from(wrapper.children)) {
+    if (child instanceof HTMLElement === false) {
+      continue;
+    }
+    const kind = child.getAttribute(partsAttribute);
+    if (kind !== "text" && kind !== "children") {
+      targets.push({ element: child, subject: child, start: 0, end: 1 });
+      continue;
+    }
+    const slidingWindow = Number(child.dataset.bdflowWindow ?? "1");
+    const easing = easingCurves[child.dataset.bdflowEasing ?? ""];
+    let parts: HTMLElement[];
+    if (kind === "text") {
+      const split = splitTextIntoParts(
+        child,
+        (child.dataset.bdflowSplit ?? "char") as SplitMode
+      );
+      parts = split.parts;
+      restores.push(split.restore);
+    } else {
+      parts = Array.from(child.children).filter(
+        (part): part is HTMLElement => part instanceof HTMLElement
+      );
+    }
+    parts.forEach((part, index) => {
+      const [start, end] = getPartRange(
+        index,
+        parts.length,
+        Number.isFinite(slidingWindow) ? slidingWindow : 1
+      );
+      targets.push({ element: part, subject: child, start, end, easing });
+    });
+  }
+  return { targets, restore: () => restores.forEach((restore) => restore()) };
+};
+
+const uniqueSubjects = (targets: AnimationTarget[]) =>
+  Array.from(new Set(targets.map((target) => target.subject)));
 
 const prefersReducedMotion = () =>
   typeof matchMedia === "function" &&
@@ -165,12 +227,23 @@ const runScrollDriven = (
   const animations: Animation[] = [];
   const fallbacks: Array<() => void> = [];
   const axis = toScrollAxis(action.axis);
-  const targets = getTargets(wrapper);
+  const { targets, restore } = getAnimationTargets(wrapper);
   const observers: IntersectionObserver[] = [];
 
-  for (const target of targets) {
+  for (const {
+    element: target,
+    subject,
+    start,
+    end,
+    easing: partEasing,
+  } of targets) {
     for (const animation of action.animations as AnyAnimation[]) {
-      const keyframes = toWebKeyframes(animation.keyframes);
+      const keyframes = remapKeyframes(
+        toWebKeyframes(animation.keyframes),
+        start,
+        end,
+        partEasing
+      );
       const { easing, fill } = animation.timing;
       // A view animation with a fixed duration plays once, for that duration,
       // when the element scrolls into view.
@@ -185,7 +258,7 @@ const runScrollDriven = (
             animations.push(target.animate(keyframes, options));
           }
         });
-        observer.observe(target);
+        observer.observe(subject);
         observers.push(observer);
         // hold the first frame until it plays so the element does not flash
         if (options.fill === "both" || options.fill === "backwards") {
@@ -196,7 +269,7 @@ const runScrollDriven = (
         continue;
       }
       if (action.type === "view" && ViewTimeline !== undefined) {
-        const timeline = new ViewTimeline({ subject: target, axis });
+        const timeline = new ViewTimeline({ subject, axis });
         animations.push(
           target.animate(keyframes, {
             timeline,
@@ -247,7 +320,7 @@ const runScrollDriven = (
       fallbacks.push(() => {
         const progress =
           container === undefined
-            ? getViewProgress(target)
+            ? getViewProgress(subject)
             : getScrollProgress(container);
         running.currentTime = progress * 1000;
       });
@@ -258,6 +331,7 @@ const runScrollDriven = (
     return () => {
       observers.forEach((observer) => observer.disconnect());
       animations.forEach((animation) => animation.cancel());
+      restore();
     };
   }
   let frame = 0;
@@ -274,6 +348,7 @@ const runScrollDriven = (
     window.removeEventListener("scroll", update, { capture: true });
     window.removeEventListener("resize", update);
     animations.forEach((animation) => animation.cancel());
+    restore();
   };
 };
 
@@ -281,13 +356,20 @@ const runTimeBased = (
   wrapper: HTMLElement,
   action: Extract<AnimationAction, { type: "load" | "click" | "hover" }>
 ): Cleanup => {
-  const targets = getTargets(wrapper);
+  const { targets, restore } = getAnimationTargets(wrapper);
+  const subjects = uniqueSubjects(targets);
   const play = (reverse = false) => {
     const created: Animation[] = [];
     for (const target of targets) {
       for (const animation of action.animations as AnyAnimation[]) {
         const options = toTimeTiming(animation.timing);
-        const running = target.animate(toWebKeyframes(animation.keyframes), {
+        const keyframes = remapKeyframes(
+          toWebKeyframes(animation.keyframes),
+          target.start,
+          target.end,
+          target.easing
+        );
+        const running = target.element.animate(keyframes, {
           ...options,
           // playing back runs the same keyframes from the end to the start
           direction: reverse ? "reverse" : "normal",
@@ -302,7 +384,10 @@ const runTimeBased = (
 
   if (action.type === "load") {
     const created = play();
-    return () => created.forEach((animation) => animation.cancel());
+    return () => {
+      created.forEach((animation) => animation.cancel());
+      restore();
+    };
   }
 
   let current: Animation[] = [];
@@ -320,10 +405,13 @@ const runTimeBased = (
       }
       current = play(reverse);
     };
-    targets.forEach((target) => target.addEventListener("click", onClick));
+    subjects.forEach((subject) => subject.addEventListener("click", onClick));
     return () => {
-      targets.forEach((target) => target.removeEventListener("click", onClick));
+      subjects.forEach((subject) =>
+        subject.removeEventListener("click", onClick)
+      );
       cancelCurrent();
+      restore();
     };
   }
 
@@ -335,16 +423,17 @@ const runTimeBased = (
     cancelCurrent();
     current = play(true);
   };
-  targets.forEach((target) => {
-    target.addEventListener("pointerenter", onEnter);
-    target.addEventListener("pointerleave", onLeave);
+  subjects.forEach((subject) => {
+    subject.addEventListener("pointerenter", onEnter);
+    subject.addEventListener("pointerleave", onLeave);
   });
   return () => {
-    targets.forEach((target) => {
-      target.removeEventListener("pointerenter", onEnter);
-      target.removeEventListener("pointerleave", onLeave);
+    subjects.forEach((subject) => {
+      subject.removeEventListener("pointerenter", onEnter);
+      subject.removeEventListener("pointerleave", onLeave);
     });
     cancelCurrent();
+    restore();
   };
 };
 
