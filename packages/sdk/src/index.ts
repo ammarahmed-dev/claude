@@ -72,6 +72,10 @@ export type {
   DurationUnitValue,
   IterationsUnitValue,
   TimeUnit,
+  TimeAnimation,
+  AnimationActionLoad,
+  AnimationActionClick,
+  AnimationActionHover,
 } from "./schema/animation-schema";
 
 export {
@@ -79,6 +83,7 @@ export {
   createAnimationActionInput,
   scrollAnimation,
   viewAnimation,
+  timeAnimation,
   rangeUnitValue,
   animationKeyframe,
   insetUnitValue,

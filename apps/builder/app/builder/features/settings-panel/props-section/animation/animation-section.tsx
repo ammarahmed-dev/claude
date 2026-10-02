@@ -45,6 +45,38 @@ const animationTypeDescription: Record<AnimationAction["type"], string> = {
   scroll:
     "Scroll-based animations are triggered and controlled by the user’s scroll position.",
   view: "View-based animations occur when an element enters or exits the viewport. They rely on the element’s visibility rather than the scroll position.",
+  load: "Plays once when the page opens.",
+  click:
+    "Plays when a child element is clicked. Turn on toggle to play it back on the next click.",
+  hover:
+    "Plays when the pointer moves over a child element and back when it leaves.",
+};
+
+type ScrollOrViewAction = Extract<AnimationAction, { type: "scroll" | "view" }>;
+
+const isScrollOrView = (
+  action: AnimationAction
+): action is ScrollOrViewAction =>
+  action.type === "scroll" || action.type === "view";
+
+/** Switching the trigger keeps only the settings every type shares. */
+const changeActionType = (
+  action: AnimationAction,
+  type: AnimationAction["type"]
+): AnimationAction => {
+  const shared = {
+    animations: [],
+    isPinned: action.isPinned,
+    debug: action.debug,
+  };
+  if (type === "scroll" || type === "view") {
+    return {
+      ...shared,
+      type,
+      axis: isScrollOrView(action) ? action.axis : undefined,
+    } as AnimationAction;
+  }
+  return { ...shared, type } as AnimationAction;
 };
 
 const insetDescription =
@@ -62,7 +94,7 @@ const defaultActionValue: AnimationAction = {
 const animationActionInput = createAnimationActionInput({ parseCssValue });
 
 const animationAxisDescription: Record<
-  Exclude<NonNullable<AnimationAction["axis"]>, "block" | "inline">,
+  Exclude<NonNullable<ScrollOrViewAction["axis"]>, "block" | "inline">,
   { icon: React.ReactNode; label: string; description: React.ReactNode }
 > = {
   /*
@@ -97,7 +129,7 @@ const animationAxisDescription: Record<
 /**
  * Support for block and inline axis is removed, as it is not widely used.
  */
-const convertAxisToXY = (axis: NonNullable<AnimationAction["axis"]>) => {
+const convertAxisToXY = (axis: NonNullable<ScrollOrViewAction["axis"]>) => {
   switch (axis) {
     case "block":
       return "y";
@@ -229,41 +261,56 @@ const AnimationConfig = ({
             </Box>
           )}
           onChange={(typeValue) =>
-            onChange({ ...value, type: typeValue, animations: [] }, false)
+            onChange(changeActionType(value, typeValue), false)
           }
         />
       </Grid>
 
-      <Grid gap={1} align="center" columns={2}>
-        <FieldLabel description="Axis determines whether an animation progresses based on an element’s visibility along the horizontal or vertical direction.">
-          Axis
-        </FieldLabel>
-        <ToggleGroup
-          css={{ justifySelf: "end" }}
-          type="single"
-          value={convertAxisToXY(value.axis ?? ("y" as const))}
-          onValueChange={(axis: keyof typeof animationAxisDescription) =>
-            onChange({ ...value, axis: convertAxisToXY(axis) }, false)
-          }
-        >
-          {Object.entries(animationAxisDescription).map(
-            ([key, { icon, label, description }]) => (
-              <Tooltip
-                key={key}
-                variant="wrapped"
-                content={
-                  <Grid gap={1}>
-                    <Text variant={"titles"}>{label}</Text>
-                    <Text>{description}</Text>
-                  </Grid>
-                }
-              >
-                <ToggleGroupButton value={key}>{icon}</ToggleGroupButton>
-              </Tooltip>
-            )
-          )}
-        </ToggleGroup>
-      </Grid>
+      {value.type === "click" && (
+        <Grid gap={1} align="center" columns={2}>
+          <FieldLabel description="When on, the next click plays the animation backwards, like an open and close.">
+            Toggle
+          </FieldLabel>
+          <Switch
+            css={{ justifySelf: "end" }}
+            checked={value.toggle ?? false}
+            onCheckedChange={(toggle) => onChange({ ...value, toggle }, false)}
+          />
+        </Grid>
+      )}
+
+      {isScrollOrView(value) && (
+        <Grid gap={1} align="center" columns={2}>
+          <FieldLabel description="Axis determines whether an animation progresses based on an element’s visibility along the horizontal or vertical direction.">
+            Axis
+          </FieldLabel>
+          <ToggleGroup
+            css={{ justifySelf: "end" }}
+            type="single"
+            value={convertAxisToXY(value.axis ?? ("y" as const))}
+            onValueChange={(axis: keyof typeof animationAxisDescription) =>
+              onChange({ ...value, axis: convertAxisToXY(axis) }, false)
+            }
+          >
+            {Object.entries(animationAxisDescription).map(
+              ([key, { icon, label, description }]) => (
+                <Tooltip
+                  key={key}
+                  variant="wrapped"
+                  content={
+                    <Grid gap={1}>
+                      <Text variant={"titles"}>{label}</Text>
+                      <Text>{description}</Text>
+                    </Grid>
+                  }
+                >
+                  <ToggleGroupButton value={key}>{icon}</ToggleGroupButton>
+                </Tooltip>
+              )
+            )}
+          </ToggleGroup>
+        </Grid>
+      )}
 
       {value.type === "scroll" && (
         <Grid gap={1} align="center" columns={2}>

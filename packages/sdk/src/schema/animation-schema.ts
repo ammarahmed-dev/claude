@@ -219,10 +219,45 @@ export const viewAction = z.object({
   debug: z.boolean().optional(),
 });
 
+// Time-based animations run for a duration after a trigger.
+export const timeAnimation = baseAnimation.merge(
+  z.object({
+    timing: keyframeEffectOptions,
+  })
+);
+
+const timeActionFields = {
+  animations: z.array(timeAnimation),
+  isPinned: z.boolean().optional(),
+  debug: z.boolean().optional(),
+};
+
+// Page load: plays once when the page opens.
+export const loadAction = z.object({
+  type: z.literal("load"),
+  ...timeActionFields,
+});
+
+// Click: plays when a child is clicked; with toggle a second click plays it back.
+export const clickAction = z.object({
+  type: z.literal("click"),
+  toggle: z.boolean().optional(),
+  ...timeActionFields,
+});
+
+// Hover: plays when the pointer enters a child and back when it leaves.
+export const hoverAction = z.object({
+  type: z.literal("hover"),
+  ...timeActionFields,
+});
+
 // Animation Action
 export const animationAction = z.discriminatedUnion("type", [
   scrollAction,
   viewAction,
+  loadAction,
+  clickAction,
+  hoverAction,
 ]);
 
 const animationStyleInput = z.union([
@@ -262,6 +297,11 @@ const viewAnimationInput = viewAnimation.extend({
   keyframes: z.array(animationKeyframeInput),
 });
 
+const timeAnimationInput = timeAnimation.extend({
+  timing: timeAnimation.shape.timing.optional().default({}),
+  keyframes: z.array(animationKeyframeInput),
+});
+
 export const createAnimationActionInput = ({
   parseCssValue,
 }: {
@@ -271,6 +311,9 @@ export const createAnimationActionInput = ({
     .discriminatedUnion("type", [
       scrollAction.extend({ animations: z.array(scrollAnimationInput) }),
       viewAction.extend({ animations: z.array(viewAnimationInput) }),
+      loadAction.extend({ animations: z.array(timeAnimationInput) }),
+      clickAction.extend({ animations: z.array(timeAnimationInput) }),
+      hoverAction.extend({ animations: z.array(timeAnimationInput) }),
     ])
     .transform(
       (action): AnimationAction =>
@@ -313,6 +356,10 @@ export type ViewRangeValue = z.infer<typeof viewRangeValue>;
 export type AnimationActionScroll = z.infer<typeof scrollAction>;
 export type AnimationActionView = z.infer<typeof viewAction>;
 export type AnimationAction = z.infer<typeof animationAction>;
+export type AnimationActionLoad = z.infer<typeof loadAction>;
+export type AnimationActionClick = z.infer<typeof clickAction>;
+export type AnimationActionHover = z.infer<typeof hoverAction>;
+export type TimeAnimation = z.infer<typeof timeAnimation>;
 export type ScrollAnimation = z.infer<typeof scrollAnimation>;
 export type ViewAnimation = z.infer<typeof viewAnimation>;
 export type InsetUnitValue = z.infer<typeof insetUnitValue>;

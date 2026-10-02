@@ -37,12 +37,19 @@ import {
 import {
   scrollAnimation,
   viewAnimation,
+  timeAnimation,
   type AnimationAction,
   type ScrollAnimation,
   type ViewAnimation,
+  type TimeAnimation,
 } from "@webstudio-is/sdk";
 import { newScrollAnimations } from "./new-scroll-animations";
 import { newViewAnimations } from "./new-view-animations";
+import {
+  newClickAnimations,
+  newHoverAnimations,
+  newLoadAnimations,
+} from "./new-time-animations";
 import { AnimationPanelContent } from "./animation-panel-content";
 import { CollapsibleSectionRoot } from "~/builder/shared/collapsible-section";
 import { z } from "zod";
@@ -51,9 +58,15 @@ import { readClipboardText } from "~/shared/clipboard";
 const newAnimationsPerType: {
   scroll: ScrollAnimation[];
   view: ViewAnimation[];
+  load: TimeAnimation[];
+  click: TimeAnimation[];
+  hover: TimeAnimation[];
 } = {
   scroll: newScrollAnimations,
   view: newViewAnimations,
+  load: newLoadAnimations,
+  click: newClickAnimations,
+  hover: newHoverAnimations,
 };
 
 type AnimationsSelectProps = {
@@ -73,7 +86,9 @@ const copyAttribute = "data-animation-index";
 
 const clipboardNamespace = "@webstudio/animation/v0.1";
 
-const serialize = (animations: (ScrollAnimation | ViewAnimation)[]) => {
+const serialize = (
+  animations: (ScrollAnimation | ViewAnimation | TimeAnimation)[]
+) => {
   return JSON.stringify({ [clipboardNamespace]: animations });
 };
 
@@ -89,6 +104,14 @@ const parseScrollAnimations = (text: string): ScrollAnimation[] => {
   const data = JSON.parse(text);
   const parsed = z
     .object({ [clipboardNamespace]: z.array(scrollAnimation) })
+    .parse(data);
+  return parsed[clipboardNamespace];
+};
+
+const parseTimeAnimations = (text: string): TimeAnimation[] => {
+  const data = JSON.parse(text);
+  const parsed = z
+    .object({ [clipboardNamespace]: z.array(timeAnimation) })
     .parse(data);
   return parsed[clipboardNamespace];
 };
@@ -130,6 +153,16 @@ const AnimationContextMenu = ({
         }
         if (action.type === "view") {
           const animations = parseViewAnimations(text);
+          const newAction = structuredClone(action);
+          newAction.animations.splice(index + 1, 0, ...animations);
+          onChange(newAction);
+        }
+        if (
+          action.type === "load" ||
+          action.type === "click" ||
+          action.type === "hover"
+        ) {
+          const animations = parseTimeAnimations(text);
           const newAction = structuredClone(action);
           newAction.animations.splice(index + 1, 0, ...animations);
           onChange(newAction);
