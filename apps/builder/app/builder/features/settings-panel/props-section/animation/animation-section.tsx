@@ -50,6 +50,8 @@ const animationTypeDescription: Record<AnimationAction["type"], string> = {
     "Plays when a child element is clicked. Turn on toggle to play it back on the next click.",
   hover:
     "Plays when the pointer moves over a child element and back when it leaves.",
+  mouse:
+    "Follows the pointer: its position across the element, or the page, sets how far the animation has played.",
 };
 
 const animationTypeLabels: Record<AnimationAction["type"], string> = {
@@ -58,6 +60,7 @@ const animationTypeLabels: Record<AnimationAction["type"], string> = {
   scroll: "While scrolling",
   click: "Click",
   hover: "Hover",
+  mouse: "Mouse move",
 };
 
 type ScrollOrViewAction = Extract<AnimationAction, { type: "scroll" | "view" }>;
@@ -96,6 +99,7 @@ const animationTypes: AnimationAction["type"][] = [
   "scroll",
   "click",
   "hover",
+  "mouse",
 ];
 
 const defaultActionValue: AnimationAction = {
@@ -259,6 +263,39 @@ const AnimationConfig = ({
 }) => {
   return (
     <PanelContent as={Grid} gap={2}>
+      {value.type === "mouse" && (
+        <>
+          <Grid gap={1} align="center" columns={2}>
+            <FieldLabel description="Which way the pointer moves to play the animation: left to right, or top to bottom.">
+              Direction
+            </FieldLabel>
+            <Select
+              aria-label="Direction"
+              options={["x", "y"] as const}
+              getLabel={(axis: "x" | "y") =>
+                axis === "x" ? "Left to right" : "Top to bottom"
+              }
+              value={value.axis ?? "x"}
+              onChange={(axis) => onChange({ ...value, axis }, false)}
+            />
+          </Grid>
+          <Grid gap={1} align="center" columns={2}>
+            <FieldLabel description="Track the pointer over this element only, or anywhere on the page.">
+              Track over
+            </FieldLabel>
+            <Select
+              aria-label="Track over"
+              options={["element", "page"] as const}
+              getLabel={(area: "element" | "page") =>
+                area === "element" ? "This element" : "Whole page"
+              }
+              value={value.area ?? "element"}
+              onChange={(area) => onChange({ ...value, area }, false)}
+            />
+          </Grid>
+        </>
+      )}
+
       {value.type === "click" && (
         <Grid gap={1} align="center" columns={2}>
           <FieldLabel description="When on, the next click plays the animation backwards, like an open and close.">

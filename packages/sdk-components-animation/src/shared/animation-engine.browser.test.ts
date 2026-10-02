@@ -206,3 +206,29 @@ describe("split text and stagger", () => {
     stop();
   });
 });
+
+describe("mouse move", () => {
+  test("the pointer position across the element sets the progress", () => {
+    const { wrapper, child } = setup();
+    child.style.cssText =
+      "position:absolute;left:0;top:0;width:200px;height:100px";
+    const stop = startAnimationAction(wrapper, {
+      type: "mouse",
+      axis: "x",
+      animations: [{ ...fade, timing: {} }],
+    });
+    const [animation] = child.getAnimations();
+    expect(animation.currentTime).toBe(500);
+    child.dispatchEvent(
+      new PointerEvent("pointermove", {
+        clientX: 50,
+        clientY: 10,
+        bubbles: true,
+      })
+    );
+    expect(animation.currentTime).toBe(250);
+    expect(Number(getComputedStyle(child).opacity)).toBeCloseTo(0.25, 2);
+    stop();
+    expect(child.getAnimations()).toHaveLength(0);
+  });
+});

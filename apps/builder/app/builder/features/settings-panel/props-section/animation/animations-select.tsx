@@ -49,6 +49,7 @@ import {
   newClickAnimations,
   newHoverAnimations,
   newLoadAnimations,
+  newMouseAnimations,
 } from "./new-time-animations";
 import { AnimationPanelContent } from "./animation-panel-content";
 import { CollapsibleSectionRoot } from "~/builder/shared/collapsible-section";
@@ -61,12 +62,14 @@ const newAnimationsPerType: {
   load: TimeAnimation[];
   click: TimeAnimation[];
   hover: TimeAnimation[];
+  mouse: TimeAnimation[];
 } = {
   scroll: newScrollAnimations,
   view: newViewAnimations,
   load: newLoadAnimations,
   click: newClickAnimations,
   hover: newHoverAnimations,
+  mouse: newMouseAnimations,
 };
 
 type AnimationsSelectProps = {
@@ -160,7 +163,8 @@ const AnimationContextMenu = ({
         if (
           action.type === "load" ||
           action.type === "click" ||
-          action.type === "hover"
+          action.type === "hover" ||
+          action.type === "mouse"
         ) {
           const animations = parseTimeAnimations(text);
           const newAction = structuredClone(action);

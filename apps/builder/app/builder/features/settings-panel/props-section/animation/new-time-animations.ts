@@ -70,3 +70,25 @@ const pulse: TimeAnimation = {
 export const newLoadAnimations = [newTimeAnimation, fadeIn, slideUp];
 export const newClickAnimations = [newTimeAnimation, pulse, scaleUp, fadeIn];
 export const newHoverAnimations = [newTimeAnimation, scaleUp, fadeIn];
+
+const tilt: TimeAnimation = {
+  name: "Tilt",
+  description: "Tilt the element toward the pointer.",
+  timing: { easing: "linear", fill: "both" },
+  keyframes: [
+    { offset: 0, styles: { rotate: parseCssValue("rotate", "-6deg") } },
+    { offset: 1, styles: { rotate: parseCssValue("rotate", "6deg") } },
+  ],
+};
+
+const follow: TimeAnimation = {
+  name: "Follow",
+  description: "Move the element a little with the pointer.",
+  timing: { easing: "linear", fill: "both" },
+  keyframes: [
+    { offset: 0, styles: { translate: parseCssValue("translate", "-24px 0") } },
+    { offset: 1, styles: { translate: parseCssValue("translate", "24px 0") } },
+  ],
+};
+
+export const newMouseAnimations = [newTimeAnimation, tilt, follow];

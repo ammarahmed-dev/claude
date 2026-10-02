@@ -76,6 +76,7 @@ export type {
   AnimationActionLoad,
   AnimationActionClick,
   AnimationActionHover,
+  AnimationActionMouse,
 } from "./schema/animation-schema";
 
 export {

@@ -352,6 +352,95 @@ const runScrollDriven = (
   };
 };
 
+/** Pointer position across a box as 0..1 along an axis. */
+export const getPointerProgress = (
+  pointer: { clientX: number; clientY: number },
+  box: { left: number; top: number; width: number; height: number },
+  axis: "x" | "y"
+) => {
+  const size = axis === "x" ? box.width : box.height;
+  if (size <= 0) {
+    return 0;
+  }
+  const offset =
+    axis === "x" ? pointer.clientX - box.left : pointer.clientY - box.top;
+  return Math.min(1, Math.max(0, offset / size));
+};
+
+const runMouseDriven = (
+  wrapper: HTMLElement,
+  action: Extract<AnimationAction, { type: "mouse" }>
+): Cleanup => {
+  const { targets, restore } = getAnimationTargets(wrapper);
+  const axis = action.axis ?? "x";
+  const area = action.area ?? "element";
+  const bySubject = new Map<HTMLElement, Animation[]>();
+  for (const target of targets) {
+    for (const animation of action.animations as AnyAnimation[]) {
+      const running = target.element.animate(
+        remapKeyframes(
+          toWebKeyframes(animation.keyframes),
+          target.start,
+          target.end,
+          target.easing
+        ),
+        {
+          duration: 1000,
+          easing: animation.timing.easing ?? "linear",
+          fill: "both",
+        }
+      );
+      running.pause();
+      // start in the middle, as if the pointer were centered
+      running.currentTime = 500;
+      const list = bySubject.get(target.subject) ?? [];
+      list.push(running);
+      bySubject.set(target.subject, list);
+    }
+  }
+  const seek = (animations: Animation[], progress: number) => {
+    for (const animation of animations) {
+      animation.currentTime = progress * 1000;
+    }
+  };
+  const listeners: Array<() => void> = [];
+  if (area === "page") {
+    const onMove = (event: PointerEvent) => {
+      const progress = getPointerProgress(
+        event,
+        {
+          left: 0,
+          top: 0,
+          width: window.innerWidth,
+          height: window.innerHeight,
+        },
+        axis
+      );
+      bySubject.forEach((animations) => seek(animations, progress));
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    listeners.push(() => window.removeEventListener("pointermove", onMove));
+  } else {
+    bySubject.forEach((animations, subject) => {
+      const onMove = (event: PointerEvent) => {
+        seek(
+          animations,
+          getPointerProgress(event, subject.getBoundingClientRect(), axis)
+        );
+      };
+      subject.addEventListener("pointermove", onMove, { passive: true });
+      listeners.push(() => subject.removeEventListener("pointermove", onMove));
+    });
+  }
+  return () => {
+    listeners.forEach((remove) => remove());
+    bySubject.forEach((animations) =>
+      animations.forEach((animation) => animation.cancel())
+    );
+    restore();
+  };
+};
+
 const runTimeBased = (
   wrapper: HTMLElement,
   action: Extract<AnimationAction, { type: "load" | "click" | "hover" }>
@@ -457,6 +546,9 @@ export const startAnimationAction = (
   }
   if (action.type === "scroll" || action.type === "view") {
     return runScrollDriven(wrapper, action);
+  }
+  if (action.type === "mouse") {
+    return runMouseDriven(wrapper, action);
   }
   return runTimeBased(wrapper, action);
 };

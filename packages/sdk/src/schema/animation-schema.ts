@@ -251,6 +251,15 @@ export const hoverAction = z.object({
   ...timeActionFields,
 });
 
+// Mouse move: the pointer position across the element (or the page) sets
+// the animation progress, like scroll does for scroll animations.
+export const mouseAction = z.object({
+  type: z.literal("mouse"),
+  axis: z.union([z.literal("x"), z.literal("y")]).optional(),
+  area: z.union([z.literal("element"), z.literal("page")]).optional(),
+  ...timeActionFields,
+});
+
 // Animation Action
 export const animationAction = z.discriminatedUnion("type", [
   scrollAction,
@@ -258,6 +267,7 @@ export const animationAction = z.discriminatedUnion("type", [
   loadAction,
   clickAction,
   hoverAction,
+  mouseAction,
 ]);
 
 const animationStyleInput = z.union([
@@ -314,6 +324,7 @@ export const createAnimationActionInput = ({
       loadAction.extend({ animations: z.array(timeAnimationInput) }),
       clickAction.extend({ animations: z.array(timeAnimationInput) }),
       hoverAction.extend({ animations: z.array(timeAnimationInput) }),
+      mouseAction.extend({ animations: z.array(timeAnimationInput) }),
     ])
     .transform(
       (action): AnimationAction =>
@@ -359,6 +370,7 @@ export type AnimationAction = z.infer<typeof animationAction>;
 export type AnimationActionLoad = z.infer<typeof loadAction>;
 export type AnimationActionClick = z.infer<typeof clickAction>;
 export type AnimationActionHover = z.infer<typeof hoverAction>;
+export type AnimationActionMouse = z.infer<typeof mouseAction>;
 export type TimeAnimation = z.infer<typeof timeAnimation>;
 export type ScrollAnimation = z.infer<typeof scrollAnimation>;
 export type ViewAnimation = z.infer<typeof viewAnimation>;

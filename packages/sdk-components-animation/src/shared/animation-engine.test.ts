@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  getPointerProgress,
   scrollRangeToCss,
   toMilliseconds,
   toTimeTiming,
@@ -75,4 +76,15 @@ describe("animation engine conversions", () => {
       "cover var(--start)"
     );
   });
+});
+
+test("pointer progress maps position across a box to 0..1", () => {
+  const box = { left: 100, top: 50, width: 200, height: 100 };
+  expect(getPointerProgress({ clientX: 200, clientY: 0 }, box, "x")).toBe(0.5);
+  expect(getPointerProgress({ clientX: 0, clientY: 0 }, box, "x")).toBe(0);
+  expect(getPointerProgress({ clientX: 999, clientY: 0 }, box, "x")).toBe(1);
+  expect(getPointerProgress({ clientX: 0, clientY: 75 }, box, "y")).toBe(0.25);
+  expect(
+    getPointerProgress({ clientX: 5, clientY: 5 }, { ...box, width: 0 }, "x")
+  ).toBe(0);
 });
