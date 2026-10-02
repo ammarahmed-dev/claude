@@ -103,7 +103,6 @@ import {
   $resources,
 } from "~/shared/sync/data-stores";
 import { RelativeTime } from "~/builder/shared/relative-time";
-import cmsUpgradeBanner from "~/shared/cms-upgrade-banner.svg?url";
 import { $currentSystem } from "~/shared/system";
 import { getPublishUrl } from "./publish-url";
 import { getInstanceLink } from "~/shared/instance-utils/link";
@@ -1129,12 +1128,6 @@ const UpgradeBanner = ({ hasCustomDomains }: { hasCustomDomains: boolean }) => {
   if (restrictedFeatures.size > 0 && hasCustomDomains) {
     return (
       <PanelBanner>
-        <img
-          src={cmsUpgradeBanner}
-          alt="Upgrade for CMS"
-          width={rawTheme.spacing[28]}
-          style={{ aspectRatio: "4.1" }}
-        />
         <Text variant="regularBold">Following Pro features are used:</Text>
         <Text as="ul" color="destructive" css={{ paddingLeft: "1em" }}>
           {Array.from(restrictedFeatures).map(

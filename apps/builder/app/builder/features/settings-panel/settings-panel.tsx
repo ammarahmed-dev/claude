@@ -8,12 +8,10 @@ import {
   Link,
   PanelBanner,
   Text,
-  rawTheme,
   theme,
 } from "@webstudio-is/design-system";
 import { UpgradeIcon } from "@webstudio-is/icons";
 import { useStore } from "@nanostores/react";
-import cmsUpgradeBanner from "~/shared/cms-upgrade-banner.svg?url";
 import { $isDesignMode, $permissions } from "~/shared/nano-states";
 
 export const SettingsPanel = ({
@@ -39,12 +37,6 @@ export const SettingsPanel = ({
 
       {allowDynamicData === false && (
         <PanelBanner>
-          <img
-            src={cmsUpgradeBanner}
-            alt="Upgrade for CMS"
-            width={rawTheme.spacing[28]}
-            style={{ aspectRatio: "4.1" }}
-          />
           <Text variant="regularBold">Upgrade for CMS on custom domains</Text>
           <Text>
             Integrate content from other tools to create blogs, directories, and
