@@ -28,3 +28,15 @@ Checked against the running editor (screenshots) and the code. "Yes" means it ex
   wraps the element in the matching animation component and opens its controls. For an element
   that is already inside one, it jumps to the wrapper.
 - The editor opens dark by default (still switchable from the menu).
+
+## Added since
+
+- Interactions: page load, click (with toggle), hover and mouse move triggers; a working engine for
+  scroll into view and while scrolling; split text and stagger. Upstream shipped the animation
+  components as empty placeholders; BD Flow has its own runtime.
+- Left rail: Components (reusable pieces with copies), Variables, Style selectors, Audit, CMS.
+  The element library is now "Add elements".
+- Google Fonts: 55 families in the font picker, loaded on the canvas and on published pages.
+  Checked in the editor (stylesheet present, font loaded) and in a static build.
+- Site settings: SEO (site address, language, hide from search engines, robots.txt, home screen
+  icon), code before the closing body tag, Integrations, Forms.
