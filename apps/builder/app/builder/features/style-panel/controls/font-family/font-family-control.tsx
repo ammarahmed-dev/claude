@@ -16,6 +16,8 @@ import { toItems } from "~/builder/shared/fonts-manager";
 import { useComputedStyleDecl } from "../../shared/model";
 import { setProperty } from "../../shared/use-style-data";
 import { useReadonly } from "../../shared/readonly";
+import { findGoogleFont } from "@webstudio-is/fonts";
+import { getFontStack, registerGoogleFont } from "~/shared/google-fonts";
 
 type Item = { value: string; label?: string };
 
@@ -78,7 +80,11 @@ export const FontFamilyControl = () => {
               <FontsManager
                 value={value.type === "fontFamily" ? value : undefined}
                 onChange={(newValue = itemValue) => {
-                  setValue({ type: "fontFamily", value: [newValue] });
+                  registerGoogleFont(newValue);
+                  setValue({
+                    type: "fontFamily",
+                    value: getFontStack(newValue),
+                  });
                 }}
               />
             }
@@ -101,6 +107,12 @@ export const FontFamilyControl = () => {
           );
         }}
         onItemSelect={(item) => {
+          if (findGoogleFont(item.value) !== undefined) {
+            registerGoogleFont(item.value);
+            setValue({ type: "fontFamily", value: getFontStack(item.value) });
+            setIntermediateValue(undefined);
+            return;
+          }
           setValue(parseCssValue("font-family", item.value));
           setIntermediateValue(undefined);
         }}

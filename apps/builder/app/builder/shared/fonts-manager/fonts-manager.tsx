@@ -57,7 +57,7 @@ const useLogic = ({ onChange, value }: FontsManagerProps) => {
     [fontItems, searchProps.value]
   );
 
-  const { uploadedItems, systemItems, groupedItems } = useMemo(
+  const { uploadedItems, googleItems, systemItems, groupedItems } = useMemo(
     () => groupItemsByType(filteredItems),
     [filteredItems]
   );
@@ -93,6 +93,7 @@ const useLogic = ({ onChange, value }: FontsManagerProps) => {
   return {
     groupedItems,
     uploadedItems,
+    googleItems,
     systemItems,
     selectedIndex,
     handleDelete,
@@ -112,6 +113,7 @@ export const FontsManager = ({ value, onChange }: FontsManagerProps) => {
   const {
     groupedItems,
     uploadedItems,
+    googleItems,
     systemItems,
     handleDelete,
     handleSelect,
@@ -194,9 +196,22 @@ export const FontsManager = ({ value, onChange }: FontsManagerProps) => {
           <DeprecatedListItem state="disabled">{"Uploaded"}</DeprecatedListItem>
         )}
         {uploadedItems.map(renderItem)}
-        {systemItems.length !== 0 && (
+        {googleItems.length !== 0 && (
           <>
             {uploadedItems.length !== 0 && <Separator />}
+            <DeprecatedListItem state="disabled">
+              Google Fonts
+            </DeprecatedListItem>
+          </>
+        )}
+        {googleItems.map((item, index) =>
+          renderItem(item, index + uploadedItems.length)
+        )}
+        {systemItems.length !== 0 && (
+          <>
+            {(uploadedItems.length !== 0 || googleItems.length !== 0) && (
+              <Separator />
+            )}
             <DeprecatedListItem
               state="disabled"
               suffix={
@@ -232,7 +247,7 @@ export const FontsManager = ({ value, onChange }: FontsManagerProps) => {
           </>
         )}
         {systemItems.map((item, index) =>
-          renderItem(item, index + uploadedItems.length)
+          renderItem(item, index + uploadedItems.length + googleItems.length)
         )}
       </DeprecatedList>
     </AssetsShell>

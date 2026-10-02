@@ -3,6 +3,7 @@ import { assetBaseUrl, imageLoader } from "__CONSTANTS__";
 import {
   canonicalUrl,
   favIconAsset,
+  googleFontUrls,
   seoNoIndex,
   webclipAsset,
   pageBackgroundImageAssets,
@@ -54,6 +55,19 @@ export const Head = ({}: { data: PageContext["data"] }) => {
           })}
         />
       )}
+      {googleFontUrls.length > 0 && (
+        <>
+          <link rel="preconnect" href="https://fonts.googleapis.com" />
+          <link
+            rel="preconnect"
+            href="https://fonts.gstatic.com"
+            crossOrigin="anonymous"
+          />
+        </>
+      )}
+      {googleFontUrls.map((url) => (
+        <link key={url} rel="stylesheet" href={url} />
+      ))}
       {seoNoIndex && <meta name="robots" content="noindex, nofollow" />}
       {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
       {pageFontAssets.map((asset) => (

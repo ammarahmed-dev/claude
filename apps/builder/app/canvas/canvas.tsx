@@ -44,7 +44,13 @@ import {
   assetBaseUrl,
 } from "~/shared/nano-states";
 import { $assetFolders, $assets } from "~/shared/sync/data-stores";
-import { $pages, $instances, $breakpoints } from "~/shared/sync/data-stores";
+import {
+  $pages,
+  $instances,
+  $breakpoints,
+  $projectSettings,
+} from "~/shared/sync/data-stores";
+import { syncGoogleFontLinks } from "~/shared/google-fonts";
 import { useDragAndDrop } from "./shared/use-drag-drop";
 import {
   initCopyPaste,
@@ -282,6 +288,14 @@ export const Canvas = () => {
   useEffect(() => subscribeResourceRequestPlan(() => {}), []);
 
   useEffect(subscribeComponentHooks, []);
+  // Google Fonts picked in the Style panel load on the canvas too
+  useEffect(
+    () =>
+      $projectSettings.subscribe((settings) =>
+        syncGoogleFontLinks(document, settings?.meta?.googleFonts ?? [])
+      ),
+    []
+  );
 
   useEffect(subscribeCommands, []);
 

@@ -228,6 +228,8 @@ export const projectMeta = z.object({
   noIndex: z.boolean().optional(),
   /** Custom robots.txt; generated when empty. */
   robotsTxt: z.string().optional(),
+  /** Google Fonts families loaded on every published page. */
+  googleFonts: z.array(z.string()).optional(),
   /** Icon shown when the site is saved to a phone's home screen. */
   webclipAssetId: z.string().optional(),
   agentInstructions: z.string().optional(),

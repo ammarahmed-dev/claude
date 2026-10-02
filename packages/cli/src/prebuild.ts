@@ -123,6 +123,7 @@ import {
   loadJSONFile,
   writeFileIfChanged,
 } from "./fs-utils";
+import { getGoogleFontStylesheetUrls } from "@webstudio-is/fonts";
 import {
   createRobotsTxt,
   createSitemapXml,
@@ -1786,6 +1787,10 @@ export const prebuild = async (options: {
 
       export const webclipAsset: string | undefined = ${JSON.stringify(
         assets.get(projectMeta?.webclipAssetId ?? "")?.name
+      )};
+
+      export const googleFontUrls: string[] = ${JSON.stringify(
+        getGoogleFontStylesheetUrls(projectMeta?.googleFonts ?? [])
       )};
 
       export const bodyEndCode: string | undefined = ${JSON.stringify(

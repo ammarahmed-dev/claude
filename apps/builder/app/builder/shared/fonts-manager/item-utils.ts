@@ -1,10 +1,14 @@
-import { SYSTEM_FONTS } from "@webstudio-is/fonts";
+import {
+  GOOGLE_FONTS,
+  SYSTEM_FONTS,
+  getGoogleFontStack,
+} from "@webstudio-is/fonts";
 import { matchSorter } from "match-sorter";
 import type { AssetContainer } from "../assets";
 
 export type Item = {
   label: string;
-  type: "uploaded" | "system";
+  type: "uploaded" | "google" | "system";
   description?: string;
   stack: Array<string>;
 };
@@ -38,7 +42,15 @@ export const toItems = (
       stack: config.stack,
     });
   }
-  return [...uploaded.values(), ...system];
+  const google = GOOGLE_FONTS.filter(
+    (font) => uploaded.has(font.family) === false
+  ).map((font) => ({
+    label: font.family,
+    type: "google" as const,
+    description: `Google Fonts, ${font.category}. Loaded from Google on the canvas and the published site.`,
+    stack: getGoogleFontStack(font),
+  }));
+  return [...uploaded.values(), ...google, ...system];
 };
 
 export const filterIdsByFamily = (
@@ -64,9 +76,10 @@ export const filterIdsByFamily = (
 
 export const groupItemsByType = (items: Array<Item>) => {
   const uploadedItems = items.filter((item) => item.type === "uploaded");
+  const googleItems = items.filter((item) => item.type === "google");
   const systemItems = items.filter((item) => item.type === "system");
-  const groupedItems = [...uploadedItems, ...systemItems];
-  return { uploadedItems, systemItems, groupedItems };
+  const groupedItems = [...uploadedItems, ...googleItems, ...systemItems];
+  return { uploadedItems, googleItems, systemItems, groupedItems };
 };
 
 export const filterItems = (search: string, items: Array<Item>) => {

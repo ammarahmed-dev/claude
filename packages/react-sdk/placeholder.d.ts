@@ -18,6 +18,19 @@ declare module "__CLIENT__" {
 
   export const favIconAsset: string | undefined;
 
+  // Site-wide SEO and fonts from Site settings
+  export const siteLanguage: string | undefined;
+
+  export const seoNoIndex: boolean;
+
+  export const canonicalUrl: string | undefined;
+
+  export const webclipAsset: string | undefined;
+
+  export const googleFontUrls: string[];
+
+  export const bodyEndCode: string | undefined;
+
   export const breakpoints: {
     id: string;
     minWidth?: number;
