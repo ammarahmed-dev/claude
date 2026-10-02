@@ -123,6 +123,11 @@ import {
   loadJSONFile,
   writeFileIfChanged,
 } from "./fs-utils";
+import {
+  createRobotsTxt,
+  createSitemapXml,
+  getCanonicalUrl,
+} from "./seo-output";
 import { htmlToJsx } from "./html-to-jsx";
 import { compareMedia } from "@webstudio-is/css-engine";
 import {
@@ -1769,6 +1774,24 @@ export const prebuild = async (options: {
 
       export const siteName = ${JSON.stringify(projectMeta?.siteName)};
 
+      export const siteLanguage: string | undefined = ${JSON.stringify(
+        projectMeta?.language?.trim() || undefined
+      )};
+
+      export const seoNoIndex = ${JSON.stringify(projectMeta?.noIndex === true)};
+
+      export const canonicalUrl: string | undefined = ${JSON.stringify(
+        getCanonicalUrl(projectMeta?.siteUrl, pagePath)
+      )};
+
+      export const webclipAsset: string | undefined = ${JSON.stringify(
+        assets.get(projectMeta?.webclipAssetId ?? "")?.name
+      )};
+
+      export const bodyEndCode: string | undefined = ${JSON.stringify(
+        projectMeta?.bodyCode?.trim() || undefined
+      )};
+
       export const breakpoints = ${JSON.stringify(breakpoints)};
 
       export const favIconAsset: string | undefined =
@@ -1936,6 +1959,35 @@ export const prebuild = async (options: {
   }
 
   const sitemap = getStaticSiteMapXml(pages, siteData.build.updatedAt);
+
+  // MARK: - robots.txt and sitemap.xml for static builds
+  if (isStaticBuild) {
+    const siteMeta = siteData.build.projectSettings?.meta ?? pages.meta;
+    const userPaths = new Set(
+      getAllPages(pages).map((page) => getPagePath(page.id, pages))
+    );
+    const publicDirectory = join(buildRoot, "public");
+    await createFolderIfNotExists(publicDirectory);
+    // a page the user made at the same address takes precedence
+    if (userPaths.has("/robots.txt") === false) {
+      await writeFile(
+        join(publicDirectory, "robots.txt"),
+        createRobotsTxt({
+          robotsTxt: siteMeta?.robotsTxt,
+          noIndex: siteMeta?.noIndex,
+          siteUrl: siteMeta?.siteUrl,
+        }),
+        "utf8"
+      );
+    }
+    const sitemapXml = createSitemapXml({
+      siteUrl: siteMeta?.siteUrl,
+      entries: sitemap,
+    });
+    if (sitemapXml !== undefined && userPaths.has("/sitemap.xml") === false) {
+      await writeFile(join(publicDirectory, "sitemap.xml"), sitemapXml, "utf8");
+    }
+  }
   await writeGeneratedFile(
     join(generatedDir, "$resources.sitemap.xml.ts"),
     `

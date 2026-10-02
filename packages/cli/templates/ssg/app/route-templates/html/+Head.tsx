@@ -1,7 +1,10 @@
 import type { PageContext } from "vike/types";
 import { assetBaseUrl, imageLoader } from "__CONSTANTS__";
 import {
+  canonicalUrl,
   favIconAsset,
+  seoNoIndex,
+  webclipAsset,
   pageBackgroundImageAssets,
   pageFontAssets,
   siteName,
@@ -38,6 +41,21 @@ export const Head = ({}: { data: PageContext["data"] }) => {
           })}
         />
       )}
+      {webclipAsset && (
+        <link
+          rel="apple-touch-icon"
+          href={imageLoader({
+            src: `${assetBaseUrl}${webclipAsset}`,
+            width: 180,
+            height: 180,
+            fit: "pad",
+            quality: 100,
+            format: "auto",
+          })}
+        />
+      )}
+      {seoNoIndex && <meta name="robots" content="noindex, nofollow" />}
+      {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
       {pageFontAssets.map((asset) => (
         <link
           key={asset}

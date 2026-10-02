@@ -10,6 +10,7 @@ export type SectionName =
   | "marketplace"
   | "backups"
   | "integrations"
-  | "forms";
+  | "forms"
+  | "seo";
 
 export const $openProjectSettings = atom<SectionName | undefined>();

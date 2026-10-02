@@ -3,6 +3,8 @@ import { dangerouslySkipEscape, escapeInject } from "vike/server";
 import type { OnRenderHtmlAsync } from "vike/types";
 import {
   CustomCode,
+  bodyEndCode,
+  siteLanguage,
   projectId,
   projectVersion,
   lastPublished,
@@ -11,8 +13,19 @@ import {
   // @ts-ignore
 } from "../app/__generated__/_index";
 
+/** Site-wide code from Site settings goes before the closing body tag. */
+const injectBeforeBodyEnd = (html: string, code: string | undefined) => {
+  if (code === undefined || code.trim() === "") {
+    return html;
+  }
+  const index = html.toLowerCase().lastIndexOf("</body>");
+  return index === -1
+    ? `${html}${code}`
+    : `${html.slice(0, index)}${code}${html.slice(index)}`;
+};
+
 export const onRenderHtml: OnRenderHtmlAsync = async (pageContext) => {
-  const lang = pageContext.data.pageMeta.language || "en";
+  const lang = pageContext.data.pageMeta.language || siteLanguage || "en";
   const Head = pageContext.config.Head ?? (() => <></>);
   const Page = pageContext.Page ?? (() => <></>);
   const stream = await renderToReadableStream(
@@ -32,6 +45,8 @@ export const onRenderHtml: OnRenderHtmlAsync = async (pageContext) => {
     </html>
   );
   await stream.allReady;
-  const html = dangerouslySkipEscape(await new Response(stream).text());
+  const html = dangerouslySkipEscape(
+    injectBeforeBodyEnd(await new Response(stream).text(), bodyEndCode)
+  );
   return escapeInject`${html}`;
 };

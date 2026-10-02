@@ -45,6 +45,7 @@ const defaultMetaSettings: ProjectMeta = {
   contactEmail: "",
   faviconAssetId: "",
   code: "",
+  bodyCode: "",
 };
 
 const saveSetting = <Name extends keyof ProjectMeta>(
@@ -217,6 +218,21 @@ export const SectionGeneral = ({ projectId }: { projectId?: string }) => {
           value={meta.code ?? ""}
           onChange={handleSave("code")}
           onChangeComplete={handleSave("code")}
+        />
+      </Grid>
+
+      <Grid gap={2} css={sectionSpacing}>
+        <Label>Code before the closing body tag</Label>
+        <Text color="subtle">
+          Added at the end of every published page, after the content. Use it
+          for scripts that need the page to be loaded, such as chat widgets.
+        </Text>
+        <CodeEditor
+          title="Code before the closing body tag"
+          lang="html"
+          value={meta.bodyCode ?? ""}
+          onChange={handleSave("bodyCode")}
+          onChangeComplete={handleSave("bodyCode")}
         />
       </Grid>
     </Grid>

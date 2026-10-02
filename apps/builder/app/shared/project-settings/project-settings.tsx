@@ -33,6 +33,7 @@ import { SectionMarketplace } from "./section-marketplace";
 import { SectionBackups } from "./section-backups";
 import { SectionIntegrations } from "./section-integrations";
 import { SectionForms } from "./section-forms";
+import { SectionSeo } from "./section-seo";
 import { titleCase } from "title-case";
 
 const sections = new Map<
@@ -40,6 +41,7 @@ const sections = new Map<
   FunctionComponent<{ projectId?: string }>
 >([
   ["general", SectionGeneral],
+  ["seo", SectionSeo],
   ["integrations", SectionIntegrations],
   ["forms", SectionForms],
   ["agents", SectionAgents],
@@ -52,6 +54,7 @@ const sections = new Map<
 ] as const);
 
 const sectionLabels = new Map<SectionName, string>([
+  ["seo", "SEO"],
   ["auth", "Authentication"],
 ]);
 

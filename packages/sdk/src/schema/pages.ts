@@ -218,6 +218,18 @@ export const projectMeta = z.object({
   contactEmail: z.string().optional(),
   faviconAssetId: z.string().optional(),
   code: z.string().optional(),
+  /** HTML added before the closing body tag of every published page. */
+  bodyCode: z.string().optional(),
+  /** Public address of the published site, e.g. https://example.com. */
+  siteUrl: z.string().optional(),
+  /** Default language code for pages that do not set their own. */
+  language: z.string().optional(),
+  /** Asks search engines not to index any page. */
+  noIndex: z.boolean().optional(),
+  /** Custom robots.txt; generated when empty. */
+  robotsTxt: z.string().optional(),
+  /** Icon shown when the site is saved to a phone's home screen. */
+  webclipAssetId: z.string().optional(),
   agentInstructions: z.string().optional(),
   auth: z.string().optional(),
   customHeaders: customResponseHeaders
