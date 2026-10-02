@@ -31,6 +31,7 @@ import { SectionRedirects } from "./section-redirects";
 import { SectionPublish } from "./section-publish";
 import { SectionMarketplace } from "./section-marketplace";
 import { SectionBackups } from "./section-backups";
+import { SectionIntegrations } from "./section-integrations";
 import { titleCase } from "title-case";
 
 const sections = new Map<
@@ -38,6 +39,7 @@ const sections = new Map<
   FunctionComponent<{ projectId?: string }>
 >([
   ["general", SectionGeneral],
+  ["integrations", SectionIntegrations],
   ["agents", SectionAgents],
   ["redirects", SectionRedirects],
   ["publish", SectionPublish],
