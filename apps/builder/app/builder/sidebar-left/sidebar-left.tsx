@@ -22,6 +22,7 @@ import {
   CheckCircleIcon,
   PaintBrushIcon,
   BracesIcon,
+  SlotComponentIcon,
   NavigatorIcon,
   PageIcon,
   PlusIcon,
@@ -57,6 +58,7 @@ import { AssetsPanel } from "~/builder/features/assets";
 import { AuditPanel } from "~/builder/features/audit/audit-panel";
 import { StyleSelectorsPanel } from "~/builder/features/style-selectors/style-selectors-panel";
 import { VariablesPanel } from "~/builder/features/variables/variables-panel";
+import { ComponentsLibraryPanel } from "~/builder/features/components-library/components-library-panel";
 import { MarketplacePanel } from "~/builder/features/marketplace";
 import type { SidebarPanelName } from "./types";
 
@@ -126,10 +128,10 @@ const isPanelDisabled = (
 const panels: PanelConfig[] = [
   {
     name: "components",
-    ariaLabel: "Components",
+    ariaLabel: "Add elements",
     label: (
       <Text>
-        Components&nbsp;&nbsp;
+        Add elements&nbsp;&nbsp;
         <Kbd value={["A"]} color="moreSubtle" />
       </Text>
     ),
@@ -157,6 +159,15 @@ const panels: PanelConfig[] = [
     ),
     Icon: NavigatorIcon,
     Panel: NavigatorPanel,
+  },
+  {
+    name: "componentsLibrary",
+    label: "Components",
+    Icon: SlotComponentIcon,
+    Panel: ComponentsLibraryPanel,
+    visibility: {
+      content: false,
+    },
   },
   {
     name: "variables",

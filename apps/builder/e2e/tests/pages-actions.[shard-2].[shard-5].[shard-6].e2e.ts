@@ -383,7 +383,7 @@ const moveSelectedNavigatorInstance = async ({
 };
 
 const openComponentsPanel = async ({ page }: { page: Page }) => {
-  await page.getByRole("tab", { name: "Components" }).click();
+  await page.getByRole("tab", { name: "Add elements" }).click();
   await page.getByPlaceholder("Find components").waitFor();
 };
 

@@ -170,7 +170,7 @@ export const ComponentsPanel = ({
 
   return (
     <>
-      <PanelTitle>Components</PanelTitle>
+      <PanelTitle>Add elements</PanelTitle>
       <Separator />
 
       <PanelContent as={Box}>

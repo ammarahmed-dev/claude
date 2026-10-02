@@ -33,7 +33,7 @@ test("Canvas pointer drag reparents a heading and inserts a component", async ({
   await ensureInteractiveCanvas(page, canvas, container);
   await dragToCanvas(page, canvas, heading, container);
   await ensureInteractiveCanvas(page, canvas, container);
-  await page.getByRole("tab", { name: "Components" }).click();
+  await page.getByRole("tab", { name: "Add elements" }).click();
   const componentName = "Checkbox";
   await page.getByPlaceholder("Find components").fill(componentName);
   const card = page.locator('[data-drag-component="checkbox"]');
