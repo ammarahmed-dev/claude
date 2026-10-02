@@ -1,5 +1,6 @@
 export const sidebarPanelNames = [
   "assets",
+  "cms",
   "components",
   "navigator",
   "pages",

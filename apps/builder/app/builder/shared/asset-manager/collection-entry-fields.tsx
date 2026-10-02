@@ -144,8 +144,13 @@ export const CollectionEntryFields = ({
                   ? "number"
                   : field.control === "date"
                     ? "date"
-                    : "text"
+                    : field.control === "email"
+                      ? "email"
+                      : field.control === "link"
+                        ? "url"
+                        : "text"
               }
+              placeholder={field.control === "color" ? "#RRGGBB" : undefined}
               min={field.minimum}
               max={field.maximum}
               step={field.type === "integer" ? 1 : undefined}

@@ -80,6 +80,9 @@ type EditableType =
   | "Slug"
   | "Dropdown"
   | "Date"
+  | "Email"
+  | "Link"
+  | "Color"
   | "Number"
   | "Whole number"
   | "Boolean";
@@ -99,6 +102,9 @@ const fieldTypes: readonly EditableType[] = [
   "Slug",
   "Dropdown",
   "Date",
+  "Email",
+  "Link",
+  "Color",
   "Number",
   "Whole number",
   "Boolean",
@@ -120,6 +126,15 @@ const getEditableType = (field: CollectionField): EditableType => {
   }
   if (field.control === "date") {
     return "Date";
+  }
+  if (field.control === "email") {
+    return "Email";
+  }
+  if (field.control === "link") {
+    return "Link";
+  }
+  if (field.control === "color") {
+    return "Color";
   }
   if (field.type === "boolean") {
     return "Boolean";
@@ -168,6 +183,13 @@ const setFieldType = (
   }
   if (type === "Date") {
     return { ...shared, type: "string", control: "date" };
+  }
+  if (type === "Email" || type === "Link" || type === "Color") {
+    return {
+      ...shared,
+      type: "string",
+      control: type === "Email" ? "email" : type === "Link" ? "link" : "color",
+    };
   }
   if (type === "Slug") {
     return {
@@ -1052,7 +1074,11 @@ export const CollectionSettingsDialog = ({
                           : `collection-field-key-error-${field.rowId}`;
                       const stringField = field.type === "string";
                       const choiceField =
-                        field.control === "select" || field.control === "date";
+                        field.control === "select" ||
+                        field.control === "date" ||
+                        field.control === "email" ||
+                        field.control === "link" ||
+                        field.control === "color";
                       const labelError =
                         showKeyErrors &&
                         !pristineInputs.has(`${field.rowId}:label`)

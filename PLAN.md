@@ -12,9 +12,9 @@ Goal: an internal visual site builder with a CMS that has no field limits, worki
 
 ## In progress / next
 
-1. Webflow-style wording ("Sites", "New site") and a CMS panel in the left sidebar.
+1. Done: wording, CMS tab in the left sidebar.
 2. New sites on the Vercel address without a domain: pre-registered project address pool.
-3. More field types: Link, Email, Color, Image URL.
+3. Done: Email, Link, Color field types.
 4. Real login (GitHub) replacing the temporary secret login; rotate shared credentials.
 5. Custom domain (aeocheck.co subdomain) when ready, removing the pool workaround.
 

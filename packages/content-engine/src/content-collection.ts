@@ -72,6 +72,9 @@ export type CollectionField = Readonly<{
     | "slug"
     | "select"
     | "date"
+    | "email"
+    | "link"
+    | "color"
     | "number"
     | "checkbox";
   /** Allowed values for the `select` control (JSON Schema `enum`). */
@@ -419,6 +422,33 @@ const validateFieldSchema = (
 
 export const collectionSelectOptionLimit = 256;
 const collectionDateFormat = "date";
+/** String controls that are stored as plain strings and checked with a JSON Schema `format`. */
+const formatControls = {
+  date: collectionDateFormat,
+  email: "email",
+  link: "uri",
+  color: "color",
+} as const;
+type FormatControl = keyof typeof formatControls;
+const isFormatControl = (value: unknown): value is FormatControl =>
+  typeof value === "string" && Object.hasOwn(formatControls, value);
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const isEmail = (value: string) => emailPattern.test(value);
+const isAbsoluteUrl = (value: string) => {
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+};
+const isHexColor = (value: string) => /^#[0-9a-fA-F]{6}$/.test(value);
+const formatValidators = {
+  [collectionDateFormat]: isCalendarDate,
+  email: isEmail,
+  uri: isAbsoluteUrl,
+  color: isHexColor,
+} as const;
 
 const validateStringChoiceKeywords = (
   schema: Readonly<Record<string, unknown>>,
@@ -426,10 +456,10 @@ const validateStringChoiceKeywords = (
 ) => {
   if (
     Object.hasOwn(schema, "format") &&
-    schema.format !== collectionDateFormat
+    Object.values(formatControls).includes(schema.format as never) === false
   ) {
     throw new ContentCollectionError(
-      `format must be "${collectionDateFormat}" at ${getSchemaKeywordLocation(path, "format")}`
+      `format must be one of ${Object.values(formatControls).join(", ")} at ${getSchemaKeywordLocation(path, "format")}`
     );
   }
   if (Object.hasOwn(schema, "enum") === false) {
@@ -560,7 +590,16 @@ const getField = ({
   const declaredControl = extension?.control;
   const supportedControls =
     type === "string"
-      ? new Set(["text", "textarea", "slug", "select", "date"])
+      ? new Set([
+          "text",
+          "textarea",
+          "slug",
+          "select",
+          "date",
+          "email",
+          "link",
+          "color",
+        ])
       : type === "number" || type === "integer"
         ? new Set(["number"])
         : type === "boolean"
@@ -592,15 +631,20 @@ const getField = ({
       );
     }
     const hasOptions = Array.isArray(value.enum);
-    const hasDateFormat = value.format === collectionDateFormat;
+    const formatControl = (Object.keys(formatControls) as FormatControl[]).find(
+      (name) => value.format === formatControls[name]
+    );
     if (declaredControl === "select" && !hasOptions) {
       throw new ContentCollectionError(
         `Select control for property "${key}" requires an enum`
       );
     }
-    if (declaredControl === "date" && !hasDateFormat) {
+    if (
+      isFormatControl(declaredControl) &&
+      value.format !== formatControls[declaredControl]
+    ) {
       throw new ContentCollectionError(
-        `Date control for property "${key}" requires format "${collectionDateFormat}"`
+        `The ${declaredControl} control for property "${key}" requires format "${formatControls[declaredControl]}"`
       );
     }
     const control =
@@ -608,13 +652,11 @@ const getField = ({
       declaredControl === "textarea" ||
       declaredControl === "slug" ||
       declaredControl === "select" ||
-      declaredControl === "date"
+      isFormatControl(declaredControl)
         ? declaredControl
         : hasOptions
           ? "select"
-          : hasDateFormat
-            ? "date"
-            : "text";
+          : (formatControl ?? "text");
     return {
       ...shared,
       type: "string",
@@ -733,12 +775,12 @@ export const parseCollectionConfig = (
     strictTypes: false, // A referenced schema can supply the field's type.
     ownProperties: true,
     schemas: [collectionSlugSchema],
-    formats: {
-      [collectionDateFormat]: {
-        type: "string",
-        validate: isCalendarDate,
-      },
-    },
+    formats: Object.fromEntries(
+      Object.entries(formatValidators).map(([name, validate]) => [
+        name,
+        { type: "string", validate },
+      ])
+    ),
   });
   let parser;
   try {
@@ -1458,8 +1500,8 @@ const serializeCollectionField = (
     if (field.control === "select" && field.options !== undefined) {
       result.enum = [...field.options];
     }
-    if (field.control === "date") {
-      result.format = collectionDateFormat;
+    if (isFormatControl(field.control)) {
+      result.format = formatControls[field.control];
     }
   } else if (field.type === "number" || field.type === "integer") {
     if (field.minimum !== undefined) {
@@ -1481,7 +1523,7 @@ const serializeCollectionField = (
     field.control === "textarea" ||
     field.control === "slug" ||
     field.control === "select" ||
-    field.control === "date"
+    isFormatControl(field.control)
   ) {
     extension.control = field.control;
   } else if (originalExtension.control === field.control) {

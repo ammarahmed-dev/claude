@@ -136,7 +136,7 @@ describe("date field", () => {
       parseCollectionConfig(
         createConfig({ when: { type: "string", format: "date-time" } })
       )
-    ).toThrow('format must be "date"');
+    ).toThrow("format must be one of date");
   });
 
   test("date control requires the date format", () => {
@@ -147,5 +147,66 @@ describe("date field", () => {
         })
       )
     ).toThrow("requires format");
+  });
+});
+
+describe.each([
+  {
+    control: "email",
+    format: "email",
+    good: "hello@example.com",
+    bad: ["hello", "a@b", "a b@c.com"],
+  },
+  {
+    control: "link",
+    format: "uri",
+    good: "https://example.com/page",
+    bad: ["example.com", "/relative", ""],
+  },
+  {
+    control: "color",
+    format: "color",
+    good: "#2457d6",
+    bad: ["2457d6", "#fff", "blue"],
+  },
+])("$control field", ({ control, format, good, bad }) => {
+  const source = createConfig({
+    value: {
+      type: "string",
+      format,
+      "x-webstudio": { control },
+    },
+  });
+
+  test("is parsed with its control", () => {
+    const field = parseCollectionConfig(source).fields.find(
+      (item) => item.key === "value"
+    );
+    expect(field).toMatchObject({ type: "string", control });
+  });
+
+  test("accepts a valid value and rejects invalid ones", () => {
+    const config = parseCollectionConfig(source);
+    const base = { title: "Post", slug: "post" };
+    expect(config.validate({ ...base, value: good }).success).toBe(true);
+    for (const value of bad) {
+      expect(config.validate({ ...base, value }).success).toBe(false);
+    }
+  });
+
+  test("round-trips through serialization", () => {
+    const config = parseCollectionConfig(source);
+    const saved = JSON.parse(
+      serializeCollectionConfig({ config, fields: config.fields })
+    );
+    expect(saved.properties.value.format).toBe(format);
+    expect(saved.properties.value["x-webstudio"].control).toBe(control);
+  });
+
+  test("requires the matching format", () => {
+    const wrong = createConfig({
+      value: { type: "string", "x-webstudio": { control } },
+    });
+    expect(() => parseCollectionConfig(wrong)).toThrow();
   });
 });

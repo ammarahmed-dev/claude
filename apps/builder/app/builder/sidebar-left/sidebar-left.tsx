@@ -18,6 +18,7 @@ import {
   ExtensionIcon,
   HelpIcon,
   ImageIcon,
+  ContentIcon,
   NavigatorIcon,
   PageIcon,
   PlusIcon,
@@ -155,6 +156,12 @@ const panels: PanelConfig[] = [
     name: "assets",
     label: "Assets",
     Icon: ImageIcon,
+    Panel: AssetsPanel,
+  },
+  {
+    name: "cms",
+    label: "CMS",
+    Icon: ContentIcon,
     Panel: AssetsPanel,
   },
   {

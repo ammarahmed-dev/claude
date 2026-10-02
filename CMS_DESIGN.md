@@ -39,6 +39,9 @@ Originally field types were only `string | number | integer | boolean`. Progress
 | Plain text, long text, number, switch | built in                                                               |
 | Option (dropdown)                     | **done**: string + `enum` (up to 256 options), `select` control        |
 | Date                                  | **done**: string + `format: "date"`, validated as a real calendar date |
+| Email                                 | **done**: string + `format: "email"`                                   |
+| Link (also use for image URLs)        | **done**: string + `format: "uri"`, absolute URL required              |
+| Color                                 | **done**: string + custom `format: "color"`, `#RRGGBB`                 |
 | Rich text                             | todo (entry body is already MDX; needs a field-level editor)           |
 | Image / file                          | todo                                                                   |
 | Color, link                           | todo                                                                   |
