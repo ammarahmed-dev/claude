@@ -161,3 +161,18 @@ describe("shared color scheme cookie", () => {
     ).toBeUndefined();
   });
 });
+
+test("the inline bootstrap script runs on its own and defaults to dark", () => {
+  const root = { dataset: {} as Record<string, string> };
+  const fakeWindow = {
+    localStorage: { getItem: () => null },
+    // the catch fallback would pick light from this, so dark proves the
+    // main path ran without referring to anything outside the script
+    matchMedia: () => ({ matches: false }),
+  };
+  new Function("document", "window", createColorSchemeBootstrapScript())(
+    { documentElement: root },
+    fakeWindow
+  );
+  expect(root.dataset.colorScheme).toBe("dark");
+});

@@ -76,7 +76,9 @@ export const initializeStoredColorScheme = ({
     storedPreference === "dark";
   let preference: ColorSchemePreference = hasStoredPreference
     ? storedPreference
-    : defaultColorSchemePreference;
+    : // A literal, not the constant: this function is serialized into an
+      // inline script that runs before any module loads.
+      "dark";
 
   if (hasStoredPreference === false) {
     try {
