@@ -23,6 +23,7 @@ import {
 } from "@webstudio-is/design-system";
 import { ModeMenu, StylePanel } from "~/builder/features/style-panel";
 import { SettingsPanel } from "~/builder/features/settings-panel";
+import { InteractionsPanel } from "~/builder/features/interactions/interactions-panel";
 import {
   $registeredComponentMetas,
   $dragAndDropState,
@@ -122,10 +123,13 @@ export const Inspector = ({ navigatorLayout }: InspectorProps) => {
   const meta = metas.get(selectedInstance.component);
   const documentType = selectedPage?.meta.documentType ?? "html";
 
-  type PanelName = "style" | "settings";
+  type PanelName = "style" | "settings" | "interactions";
 
   const availablePanels = new Set<PanelName>();
   availablePanels.add("settings");
+  if (documentType === "html" && isDesignMode) {
+    availablePanels.add("interactions");
+  }
   if (
     // forbid styling body in xml document
     documentType === "html" &&
@@ -188,6 +192,22 @@ export const Inspector = ({ navigatorLayout }: InspectorProps) => {
                 </div>
               </Tooltip>
             )}
+            {availablePanels.has("interactions") && (
+              <Tooltip
+                variant="wrapped"
+                content={
+                  <Text>
+                    Animations and interactions for the selected element
+                  </Text>
+                }
+              >
+                <div>
+                  <PanelTabsTrigger value="interactions">
+                    Interactions
+                  </PanelTabsTrigger>
+                </div>
+              </Tooltip>
+            )}
           </PanelTabsList>
           <Separator />
           <PanelTabsContent value="style" css={contentStyle} tabIndex={-1}>
@@ -221,6 +241,29 @@ export const Inspector = ({ navigatorLayout }: InspectorProps) => {
               <SettingsPanel
                 // Re-render when instance changes
                 key={selectedInstance.id}
+                selectedInstance={selectedInstance}
+                selectedInstanceKey={selectedInstanceKey}
+              />
+            </ScrollArea>
+          </PanelTabsContent>
+          <PanelTabsContent
+            value="interactions"
+            css={contentStyle}
+            tabIndex={-1}
+          >
+            <ScrollArea>
+              <Flex
+                justify="between"
+                align="center"
+                shrink={false}
+                css={{
+                  paddingInline: theme.panel.paddingInline,
+                  height: theme.spacing[13],
+                }}
+              >
+                <InstanceInfo instance={selectedInstance} />
+              </Flex>
+              <InteractionsPanel
                 selectedInstance={selectedInstance}
                 selectedInstanceKey={selectedInstanceKey}
               />

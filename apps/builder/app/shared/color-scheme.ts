@@ -3,6 +3,9 @@ import { parse, serialize } from "cookie";
 export const colorSchemePreferences = ["system", "light", "dark"] as const;
 
 export type ColorSchemePreference = (typeof colorSchemePreferences)[number];
+/** Like Webflow's Designer, the editor opens dark until a person chooses otherwise. */
+export const defaultColorSchemePreference: ColorSchemePreference = "dark";
+
 export type ColorScheme = Exclude<ColorSchemePreference, "system">;
 
 export const colorSchemeMediaQuery = "(prefers-color-scheme: dark)";
@@ -73,7 +76,7 @@ export const initializeStoredColorScheme = ({
     storedPreference === "dark";
   let preference: ColorSchemePreference = hasStoredPreference
     ? storedPreference
-    : "system";
+    : defaultColorSchemePreference;
 
   if (hasStoredPreference === false) {
     try {
@@ -91,7 +94,7 @@ export const initializeStoredColorScheme = ({
         preference = storedSettings.colorScheme;
       }
     } catch {
-      // Invalid or unavailable storage leaves the interface on the system scheme.
+      // Invalid or unavailable storage leaves the interface on the default scheme.
     }
   }
 

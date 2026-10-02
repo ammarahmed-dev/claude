@@ -4,6 +4,7 @@ import { sidebarPanelNames } from "~/builder/sidebar-left/types";
 import {
   clientSettingsStorageKey,
   colorSchemePreferences,
+  defaultColorSchemePreference,
   parseColorSchemeCookie,
 } from "~/shared/color-scheme";
 
@@ -15,7 +16,9 @@ const userSettings = z.object({
     .default({}),
   lastDashboardSearch: z.string().default(""),
   lastAssetFolderIds: z.record(z.string(), z.string()).default({}),
-  colorScheme: z.enum(colorSchemePreferences).default("system"),
+  colorScheme: z
+    .enum(colorSchemePreferences)
+    .default(defaultColorSchemePreference),
 });
 const persistedUserSettings = userSettings.omit({ colorScheme: true });
 
