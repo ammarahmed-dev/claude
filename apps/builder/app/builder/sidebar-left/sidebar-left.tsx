@@ -19,6 +19,7 @@ import {
   HelpIcon,
   ImageIcon,
   ContentIcon,
+  CheckCircleIcon,
   NavigatorIcon,
   PageIcon,
   PlusIcon,
@@ -51,6 +52,7 @@ import { ComponentsPanel } from "~/builder/features/components";
 import { PagesPanel } from "~/builder/features/pages";
 import { NavigatorPanel } from "~/builder/features/navigator";
 import { AssetsPanel } from "~/builder/features/assets";
+import { AuditPanel } from "~/builder/features/audit/audit-panel";
 import { MarketplacePanel } from "~/builder/features/marketplace";
 import type { SidebarPanelName } from "./types";
 
@@ -163,6 +165,15 @@ const panels: PanelConfig[] = [
     label: "CMS",
     Icon: ContentIcon,
     Panel: AssetsPanel,
+  },
+  {
+    name: "audit",
+    label: "Audit",
+    Icon: CheckCircleIcon,
+    Panel: AuditPanel,
+    visibility: {
+      content: false,
+    },
   },
   {
     name: "marketplace",
