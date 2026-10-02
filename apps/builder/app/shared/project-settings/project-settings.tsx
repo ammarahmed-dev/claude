@@ -32,6 +32,7 @@ import { SectionPublish } from "./section-publish";
 import { SectionMarketplace } from "./section-marketplace";
 import { SectionBackups } from "./section-backups";
 import { SectionIntegrations } from "./section-integrations";
+import { SectionForms } from "./section-forms";
 import { titleCase } from "title-case";
 
 const sections = new Map<
@@ -40,6 +41,7 @@ const sections = new Map<
 >([
   ["general", SectionGeneral],
   ["integrations", SectionIntegrations],
+  ["forms", SectionForms],
   ["agents", SectionAgents],
   ["redirects", SectionRedirects],
   ["publish", SectionPublish],
