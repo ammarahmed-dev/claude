@@ -3,6 +3,7 @@ export const sidebarPanelNames = [
   "cms",
   "audit",
   "styleSelectors",
+  "variables",
   "components",
   "navigator",
   "pages",
