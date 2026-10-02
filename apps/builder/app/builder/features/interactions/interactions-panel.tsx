@@ -16,28 +16,28 @@ import { SettingsPanel } from "~/builder/features/settings-panel";
 export const interactionKinds = [
   {
     name: "AnimateChildren",
-    label: "Scroll and view animation",
+    label: "Add animation",
     description:
-      "Animate the element as it scrolls into view or with the scroll position.",
+      "Animate the element on page load, as it scrolls into view, while scrolling, on click or on hover.",
   },
-  {
-    name: "AnimateText",
-    label: "Text animation",
-    description: "Reveal text by character, word or line.",
-  },
-  {
-    name: "StaggerAnimation",
-    label: "Stagger animation",
-    description: "Animate a group of children one after another.",
-  },
-  {
-    name: "VideoAnimation",
-    label: "Video animation",
-    description: "Play a video as the page scrolls.",
-  },
+  // Text, stagger and video animations are listed again once they have a
+  // runtime; upstream ships them as empty placeholders.
 ] as const;
 
-type InteractionName = (typeof interactionKinds)[number]["name"];
+type KnownInteractionName =
+  | "AnimateChildren"
+  | "AnimateText"
+  | "StaggerAnimation"
+  | "VideoAnimation";
+
+type InteractionName = KnownInteractionName;
+
+const knownInteractionNames: readonly KnownInteractionName[] = [
+  "AnimateChildren",
+  "AnimateText",
+  "StaggerAnimation",
+  "VideoAnimation",
+];
 
 /** Registered component names can be namespaced, e.g. `ns:AnimateChildren`. */
 export const findInteractionComponent = (
@@ -55,11 +55,11 @@ export const getInteractionName = (
   components: Iterable<string>,
   component: string
 ): InteractionName | undefined =>
-  interactionKinds.find(
-    (kind) =>
-      findInteractionComponent([component], kind.name) !== undefined &&
-      findInteractionComponent(components, kind.name) === component
-  )?.name;
+  knownInteractionNames.find(
+    (name) =>
+      findInteractionComponent([component], name) !== undefined &&
+      findInteractionComponent(components, name) === component
+  );
 
 export const InteractionsPanel = ({
   selectedInstance,
