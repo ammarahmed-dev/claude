@@ -18,7 +18,7 @@ import {
   Text,
   ProChip,
 } from "@webstudio-is/design-system";
-import { ChevronDownIcon, UpgradeIcon } from "@webstudio-is/icons";
+import { ChevronDownIcon } from "@webstudio-is/icons";
 import type { WorkspaceWithRelation } from "@webstudio-is/project";
 import { useNavigate, useLocation } from "@remix-run/react";
 import { useStore } from "@nanostores/react";
@@ -236,21 +236,6 @@ export const WorkspaceSelector = ({
           <DropdownMenuItem withIndicator onSelect={() => setLeaveOpen(true)}>
             Leave
           </DropdownMenuItem>
-        )}
-        {permissions.canCreateWorkspace === false && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={() => {
-                window.open("/dashboard");
-              }}
-            >
-              <Flex align="center" gap="1">
-                <UpgradeIcon />
-                <Text truncate>Upgrade</Text>
-              </Flex>
-            </DropdownMenuItem>
-          </>
         )}
       </WorkspaceDropdown>
       <CreateWorkspaceDialog

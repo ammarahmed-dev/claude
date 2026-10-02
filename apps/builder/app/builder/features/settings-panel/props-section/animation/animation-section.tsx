@@ -52,6 +52,14 @@ const animationTypeDescription: Record<AnimationAction["type"], string> = {
     "Plays when the pointer moves over a child element and back when it leaves.",
 };
 
+const animationTypeLabels: Record<AnimationAction["type"], string> = {
+  load: "Page load",
+  view: "Scroll into view",
+  scroll: "While scrolling",
+  click: "Click",
+  hover: "Hover",
+};
+
 type ScrollOrViewAction = Extract<AnimationAction, { type: "scroll" | "view" }>;
 
 const isScrollOrView = (
@@ -82,9 +90,13 @@ const changeActionType = (
 const insetDescription =
   "Adjusts the animation’s start/end position relative to the scrollport. Positive values move it inward (delaying start or hastening end), while negative values move it outward (starting animation before visibility or continuing after disappearance).";
 
-const animationTypes = Object.keys(
-  animationTypeDescription
-) as AnimationAction["type"][];
+const animationTypes: AnimationAction["type"][] = [
+  "load",
+  "view",
+  "scroll",
+  "click",
+  "hover",
+];
 
 const defaultActionValue: AnimationAction = {
   type: "view",
@@ -247,25 +259,6 @@ const AnimationConfig = ({
 }) => {
   return (
     <PanelContent as={Grid} gap={2}>
-      <Grid gap={1} align="center" columns={2}>
-        <FieldLabel description="Type of the timeline defines how the animation is triggered.">
-          Type
-        </FieldLabel>
-        <Select
-          options={animationTypes}
-          getLabel={humanizeString}
-          value={value.type}
-          getDescription={(animationType) => (
-            <Box css={{ width: theme.spacing[28] }}>
-              {animationTypeDescription[animationType]}
-            </Box>
-          )}
-          onChange={(typeValue) =>
-            onChange(changeActionType(value, typeValue), false)
-          }
-        />
-      </Grid>
-
       {value.type === "click" && (
         <Grid gap={1} align="center" columns={2}>
           <FieldLabel description="When on, the next click plays the animation backwards, like an open and close.">
@@ -389,7 +382,7 @@ const AnimationConfigButton = forwardRef<
   const { animations: defaultAnimations, ...defaultValue } = defaultActionValue;
   const { animations, ...newValue } = value;
   return (
-    <Tooltip content="Advanced transform options">
+    <Tooltip content="Advanced trigger options">
       <IconButton
         {...props}
         ref={ref}
@@ -445,6 +438,27 @@ export const AnimationSection = ({
   return (
     <Grid css={{ paddingBottom: theme.panel.paddingBlock }}>
       <Grid gap={2} css={{ padding: theme.panel.paddingInline }}>
+        <Grid gap={2} align="center" columns={2}>
+          <FieldLabel description="What starts the animation.">
+            Trigger
+          </FieldLabel>
+          <Select
+            aria-label="Trigger"
+            options={animationTypes}
+            getLabel={(type: AnimationAction["type"]) =>
+              animationTypeLabels[type]
+            }
+            value={value.type}
+            getDescription={(animationType) => (
+              <Box css={{ width: theme.spacing[28] }}>
+                {animationTypeDescription[animationType]}
+              </Box>
+            )}
+            onChange={(typeValue) =>
+              handleChange(changeActionType(value, typeValue), false)
+            }
+          />
+        </Grid>
         <Grid gap={2} align="center" css={{ gridTemplateColumns: "1fr auto" }}>
           <FieldLabel description="Even if its off, you can preview the animation by selecting the item in the navigator.">
             Run on canvas
