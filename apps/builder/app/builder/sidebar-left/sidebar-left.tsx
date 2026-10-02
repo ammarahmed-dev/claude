@@ -20,6 +20,7 @@ import {
   ImageIcon,
   ContentIcon,
   CheckCircleIcon,
+  PaintBrushIcon,
   NavigatorIcon,
   PageIcon,
   PlusIcon,
@@ -53,6 +54,7 @@ import { PagesPanel } from "~/builder/features/pages";
 import { NavigatorPanel } from "~/builder/features/navigator";
 import { AssetsPanel } from "~/builder/features/assets";
 import { AuditPanel } from "~/builder/features/audit/audit-panel";
+import { StyleSelectorsPanel } from "~/builder/features/style-selectors/style-selectors-panel";
 import { MarketplacePanel } from "~/builder/features/marketplace";
 import type { SidebarPanelName } from "./types";
 
@@ -153,6 +155,15 @@ const panels: PanelConfig[] = [
     ),
     Icon: NavigatorIcon,
     Panel: NavigatorPanel,
+  },
+  {
+    name: "styleSelectors",
+    label: "Style selectors",
+    Icon: PaintBrushIcon,
+    Panel: StyleSelectorsPanel,
+    visibility: {
+      content: false,
+    },
   },
   {
     name: "assets",

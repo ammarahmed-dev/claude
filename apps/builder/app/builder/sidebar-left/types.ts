@@ -2,6 +2,7 @@ export const sidebarPanelNames = [
   "assets",
   "cms",
   "audit",
+  "styleSelectors",
   "components",
   "navigator",
   "pages",
