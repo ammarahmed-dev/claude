@@ -30,8 +30,13 @@ step "install"
 corepack enable --install-directory "$HOME/bin" >/dev/null 2>&1 || true
 export PATH="$HOME/bin:$PATH"
 cd "$ROOT"
-pnpm install --frozen-lockfile --filter 'ssg-cloudflare-pages...' >/tmp/install.log 2>&1 ||
-  { tail -40 /tmp/install.log; false; }
+# skip the install when a prepared snapshot already has these dependencies
+LOCK_HASH="$(sha256sum pnpm-lock.yaml | cut -d' ' -f1)"
+if [ "$(cat node_modules/.bdflow-lock-hash 2>/dev/null)" != "$LOCK_HASH" ]; then
+  pnpm install --frozen-lockfile --filter 'ssg-cloudflare-pages...' >/tmp/install.log 2>&1 ||
+    { tail -40 /tmp/install.log; false; }
+  echo "$LOCK_HASH" >node_modules/.bdflow-lock-hash
+fi
 WRANGLER="$HOME/.bdflow-wrangler/node_modules/.bin/wrangler"
 if [ ! -x "$WRANGLER" ]; then
   # installed outside the workspace, npx inside it cannot find the binary
