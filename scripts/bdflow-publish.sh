@@ -16,6 +16,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SITE="$ROOT/fixtures/bdflow-site"
 
 report() {
+  # nothing to report to when preparing a sandbox
+  if [ -z "${BUILDER_ORIGIN:-}" ]; then return; fi
   curl -sS -m 30 -X POST "$BUILDER_ORIGIN/rest/publish-status" \
     -H "Authorization: $SERVICE_TOKEN" \
     -H "Content-Type: application/json" \
