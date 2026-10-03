@@ -56,6 +56,8 @@ const environment = z.object({
     .string()
     .default("https://github.com/ammarahmed-dev/claude.git"),
   BDFLOW_PUBLISH_REF: z.string().default("claude/admiring-einstein-fw094e"),
+  // Vercel Sandbox snapshot with the publish tools installed (optional)
+  BDFLOW_PUBLISH_SNAPSHOT: z.string().optional(),
 
   STAGING_USERNAME: z.string().default("admin"),
   STAGING_PASSWORD: z.string().default("webstudio"),
@@ -121,6 +123,7 @@ const rawEnv = {
   CLOUDFLARE_ACCOUNT_ID: process.env.CLOUDFLARE_ACCOUNT_ID,
   BDFLOW_PUBLISH_REPO: process.env.BDFLOW_PUBLISH_REPO,
   BDFLOW_PUBLISH_REF: process.env.BDFLOW_PUBLISH_REF,
+  BDFLOW_PUBLISH_SNAPSHOT: process.env.BDFLOW_PUBLISH_SNAPSHOT,
   STAGING_USERNAME: process.env.STAGING_USERNAME,
   STAGING_PASSWORD: process.env.STAGING_PASSWORD,
   FEATURE_FLAGS: process.env.FEATURE_FLAGS,

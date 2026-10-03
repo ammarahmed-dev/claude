@@ -1,5 +1,6 @@
 import type { ActionFunctionArgs } from "@remix-run/server-runtime";
 import { z } from "zod";
+import { stopPublishSandbox } from "~/services/bdflow-publisher.server";
 import {
   createPostgrestContext,
   isServiceAuthorization,
@@ -17,6 +18,7 @@ const reply = (status: number, body: Record<string, unknown>) =>
 const statusInput = z.object({
   buildId: z.string().min(1).max(200),
   status: z.enum(["PUBLISHED", "FAILED"]),
+  sandbox: z.string().max(200).optional(),
 });
 
 export const loader = () => reply(405, { ok: false, error: "Use POST" });
@@ -29,6 +31,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const parsed = statusInput.safeParse(await request.json().catch(() => null));
   if (parsed.success === false) {
     return reply(400, { ok: false, error: "Invalid status" });
+  }
+  const { sandbox } = parsed.data;
+  if (sandbox !== undefined && sandbox !== "") {
+    // the build is over, free the sandbox now instead of at its timeout
+    stopPublishSandbox(sandbox).catch((error) =>
+      console.error("Could not stop publish sandbox", error)
+    );
   }
   const { client } = createPostgrestContext();
   const result = await client

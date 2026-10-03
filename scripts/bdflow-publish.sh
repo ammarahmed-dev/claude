@@ -7,6 +7,9 @@
 #   SITE_NAME                                Cloudflare Pages project to deploy to
 #   CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
 # When it finishes it reports PUBLISHED or FAILED back to the editor.
+#
+# PREPARE_ONLY=1 stops after installing the tools; the editor starts later
+# publishes from a snapshot of such a sandbox to skip that time.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -16,7 +19,7 @@ report() {
   curl -sS -m 30 -X POST "$BUILDER_ORIGIN/rest/publish-status" \
     -H "Authorization: $SERVICE_TOKEN" \
     -H "Content-Type: application/json" \
-    -d "{\"buildId\":\"$BUILD_ID\",\"status\":\"$1\"}" || true
+    -d "{\"buildId\":\"$BUILD_ID\",\"status\":\"$1\",\"sandbox\":\"${SANDBOX_NAME:-}\"}" || true
   echo
 }
 trap 'echo "publish failed at line $LINENO"; report FAILED' ERR
@@ -29,6 +32,17 @@ export PATH="$HOME/bin:$PATH"
 cd "$ROOT"
 pnpm install --frozen-lockfile --filter 'ssg-cloudflare-pages...' >/tmp/install.log 2>&1 ||
   { tail -40 /tmp/install.log; false; }
+WRANGLER="$HOME/.bdflow-wrangler/node_modules/.bin/wrangler"
+if [ ! -x "$WRANGLER" ]; then
+  # installed outside the workspace, npx inside it cannot find the binary
+  npm install --prefix "$HOME/.bdflow-wrangler" --no-save --no-audit --no-fund wrangler@4 \
+    >/tmp/wrangler.log 2>&1 || { tail -20 /tmp/wrangler.log; false; }
+fi
+if [ "${PREPARE_ONLY:-}" = "1" ]; then
+  trap - ERR
+  step "prepared"
+  exit 0
+fi
 
 step "prepare site"
 rm -rf "$SITE"
@@ -56,10 +70,7 @@ if [ "$(curl -sS -o /dev/null -w '%{http_code}' -H "$CF_AUTH" "$CF_API/$SITE_NAM
   curl -sS -f -X POST "$CF_API" -H "$CF_AUTH" -H "Content-Type: application/json" \
     -d "{\"name\":\"$SITE_NAME\",\"production_branch\":\"main\"}" >/dev/null
 fi
-# install wrangler outside the workspace, npx inside it cannot find the binary
-npm install --prefix /tmp/wrangler --no-save --no-audit --no-fund wrangler@4 >/tmp/wrangler.log 2>&1 ||
-  { tail -20 /tmp/wrangler.log; false; }
-WRANGLER_SEND_METRICS=false /tmp/wrangler/node_modules/.bin/wrangler pages deploy dist/client \
+WRANGLER_SEND_METRICS=false "$WRANGLER" pages deploy dist/client \
   --project-name "$SITE_NAME" --branch main --commit-dirty=true
 
 trap - ERR

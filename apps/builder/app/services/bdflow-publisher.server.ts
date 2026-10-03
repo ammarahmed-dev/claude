@@ -22,16 +22,67 @@ export const isBdflowPublishingConfigured = () =>
 
 const SANDBOX_TIMEOUT = 15 * 60 * 1000;
 
-// The sandbox clones the repository into its working directory; find the
-// script wherever that is instead of assuming a folder name.
+// The sandbox holds the repository in its working directory (a fresh clone,
+// or an older one from the prepared snapshot that UPDATE_REF brings up to
+// date); find it instead of assuming a folder name.
 const runPublishScript = [
   'for dir in "$PWD" "$PWD"/* /vercel/sandbox /vercel/*; do',
   '  if [ -f "$dir/scripts/bdflow-publish.sh" ]; then',
-  '    exec bash "$dir/scripts/bdflow-publish.sh"',
+  '    cd "$dir"',
+  '    if [ -n "${UPDATE_REF:-}" ]; then',
+  '      git fetch -q --depth 1 origin "$UPDATE_REF" && git reset -q --hard FETCH_HEAD',
+  "    fi",
+  "    exec bash scripts/bdflow-publish.sh",
   "  fi",
   "done",
   'echo "publish script not found"; exit 1',
 ].join("\n");
+
+const sandboxOptions = {
+  resources: { vcpus: 4 },
+  timeout: SANDBOX_TIMEOUT,
+  persistent: false,
+} as const;
+
+/**
+ * Starts from the prepared snapshot (tools already installed) when there is
+ * one, and from a fresh clone otherwise.
+ */
+const createPublishSandbox = async (tags: Record<string, string>) => {
+  const { Sandbox } = await import("@vercel/sandbox");
+  const snapshotId = env.BDFLOW_PUBLISH_SNAPSHOT;
+  if (snapshotId !== undefined && snapshotId !== "") {
+    try {
+      const sandbox = await Sandbox.create({
+        ...sandboxOptions,
+        tags,
+        source: { type: "snapshot", snapshotId },
+      });
+      return { sandbox, fromSnapshot: true };
+    } catch (error) {
+      console.error("Publish snapshot is not usable, cloning instead", error);
+    }
+  }
+  const sandbox = await Sandbox.create({
+    ...sandboxOptions,
+    tags,
+    runtime: "node22",
+    source: {
+      type: "git",
+      url: env.BDFLOW_PUBLISH_REPO,
+      revision: env.BDFLOW_PUBLISH_REF,
+      depth: 1,
+    },
+  });
+  return { sandbox, fromSnapshot: false };
+};
+
+/** Stops a publish sandbox once its script reported back. */
+export const stopPublishSandbox = async (name: string) => {
+  const { Sandbox } = await import("@vercel/sandbox");
+  const sandbox = await Sandbox.get({ name });
+  await sandbox.stop();
+};
 
 /**
  * Starts the build of one published site in a Vercel Sandbox. The sandbox
@@ -42,25 +93,17 @@ const startPublish = async (
   input: PublishInput,
   siteDomain: string
 ): Promise<PublishOutput> => {
-  const { Sandbox } = await import("@vercel/sandbox");
-  const sandbox = await Sandbox.create({
-    source: {
-      type: "git",
-      url: env.BDFLOW_PUBLISH_REPO,
-      revision: env.BDFLOW_PUBLISH_REF,
-      depth: 1,
-    },
-    resources: { vcpus: 4 },
-    timeout: SANDBOX_TIMEOUT,
-    runtime: "node22",
-    persistent: false,
-    tags: { purpose: "publish", build: input.buildId.slice(0, 64) },
+  const { sandbox, fromSnapshot } = await createPublishSandbox({
+    purpose: "publish",
+    build: input.buildId.slice(0, 64),
   });
   await sandbox.runCommand({
     cmd: "bash",
     args: ["-c", runPublishScript],
     detached: true,
     env: {
+      UPDATE_REF: fromSnapshot ? env.BDFLOW_PUBLISH_REF : "",
+      SANDBOX_NAME: sandbox.name,
       BUILD_ID: input.buildId,
       BUILDER_ORIGIN: input.builderOrigin,
       SERVICE_TOKEN: env.TRPC_SERVER_API_TOKEN ?? "",
