@@ -56,7 +56,10 @@ if [ "$(curl -sS -o /dev/null -w '%{http_code}' -H "$CF_AUTH" "$CF_API/$SITE_NAM
   curl -sS -f -X POST "$CF_API" -H "$CF_AUTH" -H "Content-Type: application/json" \
     -d "{\"name\":\"$SITE_NAME\",\"production_branch\":\"main\"}" >/dev/null
 fi
-WRANGLER_SEND_METRICS=false npx --yes wrangler@4 pages deploy dist/client \
+# install wrangler outside the workspace, npx inside it cannot find the binary
+npm install --prefix /tmp/wrangler --no-save --no-audit --no-fund wrangler@4 >/tmp/wrangler.log 2>&1 ||
+  { tail -20 /tmp/wrangler.log; false; }
+WRANGLER_SEND_METRICS=false /tmp/wrangler/node_modules/.bin/wrangler pages deploy dist/client \
   --project-name "$SITE_NAME" --branch main --commit-dirty=true
 
 trap - ERR
