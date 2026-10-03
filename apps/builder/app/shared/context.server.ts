@@ -5,8 +5,10 @@ import { trpcSharedClient } from "~/services/trpc.server";
 import { entryApi } from "./entri/entri-api.server";
 import {
   createBdflowDeploymentTrpc,
+  createBdflowDomainTrpc,
   isBdflowPublishingConfigured,
 } from "~/services/bdflow-publisher.server";
+import { isCloudflarePagesConfigured } from "~/services/cloudflare-pages.server";
 
 import {
   getPlanInfo,
@@ -145,9 +147,39 @@ const createAuthorizationContext = async (
   return { type: "anonymous" };
 };
 
-const createDomainContext = () => {
+/** The site address ("my-site") a custom domain (www.example.com) belongs to. */
+const createCustomDomainLookup =
+  (postgrest: AppContext["postgrest"]) => async (domain: string) => {
+    const domainRow = await postgrest.client
+      .from("Domain")
+      .select("id")
+      .eq("domain", domain)
+      .maybeSingle();
+    if (domainRow.data == null) {
+      return;
+    }
+    const links = await postgrest.client
+      .from("ProjectDomain")
+      .select("projectId")
+      .eq("domainId", domainRow.data.id);
+    const projectIds = (links.data ?? []).map((link) => link.projectId);
+    if (projectIds.length === 0) {
+      return;
+    }
+    const projects = await postgrest.client
+      .from("Project")
+      .select("domain")
+      .in("id", projectIds)
+      .eq("isDeleted", false)
+      .limit(1);
+    return projects.data?.[0]?.domain;
+  };
+
+const createDomainContext = (postgrest: AppContext["postgrest"]) => {
   const context: AppContext["domain"] = {
-    domainTrpc: trpcSharedClient.domain,
+    domainTrpc: isCloudflarePagesConfigured()
+      ? createBdflowDomainTrpc(createCustomDomainLookup(postgrest))
+      : trpcSharedClient.domain,
   };
 
   return context;
@@ -177,7 +209,11 @@ const createDeploymentContext = (
   };
   const context: AppContext["deployment"] = {
     deploymentTrpc: isBdflowPublishingConfigured()
-      ? createBdflowDeploymentTrpc(trpcSharedClient.deployment, getSiteDomain)
+      ? createBdflowDeploymentTrpc(
+          trpcSharedClient.deployment,
+          getSiteDomain,
+          createCustomDomainLookup(postgrest)
+        )
       : trpcSharedClient.deployment,
     env: {
       BUILDER_ORIGIN: getRequestOrigin(builderOrigin),
@@ -258,7 +294,7 @@ export const createContext = async (request: Request): Promise<AppContext> => {
     );
   };
 
-  const domain = createDomainContext();
+  const domain = createDomainContext(postgrest);
   const deployment = createDeploymentContext(
     getRequestOrigin(request.url),
     postgrest

@@ -1,30 +1,37 @@
 import type { AppContext } from "@webstudio-is/trpc-interface/index.server";
 import env from "~/env/env.server";
+import {
+  addPagesDomain,
+  getPagesDomain,
+  getPagesProjectName,
+  isCloudflarePagesConfigured,
+  removePagesDomain,
+  retryPagesDomain,
+  toDomainStatus,
+} from "./cloudflare-pages.server";
 
 type DeploymentTrpc = AppContext["deployment"]["deploymentTrpc"];
+type DomainTrpc = AppContext["domain"]["domainTrpc"];
 type PublishInput = Parameters<DeploymentTrpc["publish"]["mutate"]>[0];
 type PublishOutput = Awaited<ReturnType<DeploymentTrpc["publish"]["mutate"]>>;
 
-/**
- * Cloudflare Worker names allow lowercase letters, digits and dashes and
- * must start with a letter or digit.
- */
-export const getWorkerName = (siteDomain: string) =>
-  siteDomain
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 63);
-
 export const isBdflowPublishingConfigured = () =>
-  env.CLOUDFLARE_API_TOKEN !== undefined &&
-  env.CLOUDFLARE_API_TOKEN !== "" &&
-  env.CLOUDFLARE_ACCOUNT_ID !== undefined &&
-  env.CLOUDFLARE_ACCOUNT_ID !== "" &&
+  isCloudflarePagesConfigured() &&
   env.TRPC_SERVER_API_TOKEN !== undefined &&
   env.TRPC_SERVER_API_TOKEN !== "";
 
 const SANDBOX_TIMEOUT = 15 * 60 * 1000;
+
+// The sandbox clones the repository into its working directory; find the
+// script wherever that is instead of assuming a folder name.
+const runPublishScript = [
+  'for dir in "$PWD" "$PWD"/* /vercel/sandbox /vercel/*; do',
+  '  if [ -f "$dir/scripts/bdflow-publish.sh" ]; then',
+  '    exec bash "$dir/scripts/bdflow-publish.sh"',
+  "  fi",
+  "done",
+  'echo "publish script not found"; exit 1',
+].join("\n");
 
 /**
  * Starts the build of one published site in a Vercel Sandbox. The sandbox
@@ -49,20 +56,15 @@ const startPublish = async (
     persistent: false,
     tags: { purpose: "publish", build: input.buildId.slice(0, 64) },
   });
-  const repoDir = new URL(env.BDFLOW_PUBLISH_REPO).pathname
-    .split("/")
-    .pop()
-    ?.replace(/\.git$/, "");
   await sandbox.runCommand({
     cmd: "bash",
-    args: [`/vercel/${repoDir}/scripts/bdflow-publish.sh`],
-    cwd: `/vercel/${repoDir}`,
+    args: ["-c", runPublishScript],
     detached: true,
     env: {
       BUILD_ID: input.buildId,
       BUILDER_ORIGIN: input.builderOrigin,
       SERVICE_TOKEN: env.TRPC_SERVER_API_TOKEN ?? "",
-      WORKER_NAME: getWorkerName(siteDomain),
+      SITE_NAME: getPagesProjectName(siteDomain),
       CLOUDFLARE_API_TOKEN: env.CLOUDFLARE_API_TOKEN ?? "",
       CLOUDFLARE_ACCOUNT_ID: env.CLOUDFLARE_ACCOUNT_ID ?? "",
     },
@@ -73,13 +75,19 @@ const startPublish = async (
   return { success: true };
 };
 
+const failure = (prefix: string, error: unknown) => ({
+  success: false as const,
+  error: error instanceof Error ? `${prefix}: ${error.message}` : prefix,
+});
+
 /**
  * Replaces the hosted publishing service: Publish builds the site in a Vercel
- * Sandbox and deploys it to Cloudflare Workers.
+ * Sandbox and deploys it to Cloudflare Pages.
  */
 export const createBdflowDeploymentTrpc = (
   fallback: DeploymentTrpc,
-  getSiteDomain: (buildId: string) => Promise<string | undefined>
+  getSiteDomain: (buildId: string) => Promise<string | undefined>,
+  getSiteDomainOfCustomDomain: (domain: string) => Promise<string | undefined>
 ): DeploymentTrpc =>
   ({
     publish: {
@@ -95,15 +103,77 @@ export const createBdflowDeploymentTrpc = (
           return await startPublish(input, siteDomain);
         } catch (error) {
           console.error("Publish failed to start", error);
-          return {
-            success: false,
-            error:
-              error instanceof Error
-                ? `Publish failed to start: ${error.message}`
-                : "Publish failed to start",
-          };
+          return failure("Publish failed to start", error);
         }
       },
     },
-    unpublish: fallback.unpublish,
+    unpublish: {
+      mutate: async ({ domain }: { domain: string }) => {
+        const siteDomain = await getSiteDomainOfCustomDomain(domain);
+        if (siteDomain === undefined) {
+          return { success: false, error: "NOT_IMPLEMENTED" };
+        }
+        try {
+          await removePagesDomain(getPagesProjectName(siteDomain), domain);
+          return { success: true };
+        } catch (error) {
+          return failure("Could not remove the domain", error);
+        }
+      },
+    },
   }) as unknown as DeploymentTrpc;
+
+/**
+ * Custom domains: "Check status" in the Publish dialog attaches the domain to
+ * the site's Cloudflare Pages project and reads whether its CNAME works.
+ */
+export const createBdflowDomainTrpc = (
+  getSiteDomainOfCustomDomain: (domain: string) => Promise<string | undefined>
+): DomainTrpc => {
+  const getProjectName = async (domain: string) => {
+    const siteDomain = await getSiteDomainOfCustomDomain(domain);
+    if (siteDomain === undefined) {
+      throw new Error(`${domain} is not added to a site`);
+    }
+    return getPagesProjectName(siteDomain);
+  };
+  return {
+    create: {
+      mutate: async ({ domain }: { domain: string; txtRecord: string }) => {
+        try {
+          await addPagesDomain(await getProjectName(domain), domain);
+          return { success: true, data: undefined };
+        } catch (error) {
+          return failure("Could not add the domain", error);
+        }
+      },
+    },
+    refresh: {
+      mutate: async ({ domain }: { domain: string }) => {
+        try {
+          await retryPagesDomain(await getProjectName(domain), domain);
+          return { success: true, data: undefined };
+        } catch (error) {
+          return failure("Could not check the domain", error);
+        }
+      },
+    },
+    getStatus: {
+      query: async ({ domain }: { domain: string }) => {
+        try {
+          const projectName = await getProjectName(domain);
+          let pagesDomain = await getPagesDomain(projectName, domain);
+          if (pagesDomain === undefined) {
+            await addPagesDomain(projectName, domain);
+            pagesDomain = await getPagesDomain(projectName, domain);
+          } else if (pagesDomain.status !== "active") {
+            await retryPagesDomain(projectName, domain);
+          }
+          return { success: true, data: toDomainStatus(pagesDomain) };
+        } catch (error) {
+          return failure("Could not check the domain", error);
+        }
+      },
+    },
+  } as unknown as DomainTrpc;
+};

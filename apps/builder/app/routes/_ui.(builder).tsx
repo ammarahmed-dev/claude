@@ -267,8 +267,9 @@ export const loader = async (loaderArgs: LoaderFunctionArgs) => {
         role,
         planFeatures,
         purchases,
-        stagingUsername: env.STAGING_USERNAME,
-        stagingPassword: env.STAGING_PASSWORD,
+        // published sites have no password protection, so none is shown
+        stagingUsername: "",
+        stagingPassword: "",
       } as const,
       {
         headers,

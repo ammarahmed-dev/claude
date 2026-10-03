@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Builds one published BD Flow site and deploys it to Cloudflare Workers.
+# Builds one published BD Flow site and deploys it to Cloudflare Pages (<SITE_NAME>.pages.dev).
 #
 # The editor runs this inside a short-lived Vercel Sandbox that holds a fresh
 # clone of this repository. It reads everything it needs from the environment:
 #   BUILD_ID, BUILDER_ORIGIN, SERVICE_TOKEN  load the published build
-#   WORKER_NAME                              Cloudflare Worker to deploy to
+#   SITE_NAME                                Cloudflare Pages project to deploy to
 #   CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
 # When it finishes it reports PUBLISHED or FAILED back to the editor.
 set -euo pipefail
@@ -50,17 +50,14 @@ pnpm exec vite build >/tmp/vite.log 2>&1 || { tail -60 /tmp/vite.log; false; }
 pnpm exec vike prerender >>/tmp/vite.log 2>&1 || { tail -60 /tmp/vite.log; false; }
 
 step "deploy"
-NOT_FOUND='"none"'
-if [ -f dist/client/404.html ]; then NOT_FOUND='"404-page"'; fi
-cat >wrangler.jsonc <<EOF
-{
-  "name": "$WORKER_NAME",
-  "compatibility_date": "2026-10-01",
-  "workers_dev": true,
-  "assets": { "directory": "./dist/client", "not_found_handling": $NOT_FOUND }
-}
-EOF
-WRANGLER_SEND_METRICS=false npx --yes wrangler@4 deploy
+CF_API="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects"
+CF_AUTH="Authorization: Bearer $CLOUDFLARE_API_TOKEN"
+if [ "$(curl -sS -o /dev/null -w '%{http_code}' -H "$CF_AUTH" "$CF_API/$SITE_NAME")" != "200" ]; then
+  curl -sS -f -X POST "$CF_API" -H "$CF_AUTH" -H "Content-Type: application/json" \
+    -d "{\"name\":\"$SITE_NAME\",\"production_branch\":\"main\"}" >/dev/null
+fi
+WRANGLER_SEND_METRICS=false npx --yes wrangler@4 pages deploy dist/client \
+  --project-name "$SITE_NAME" --branch main --commit-dirty=true
 
 trap - ERR
 report PUBLISHED

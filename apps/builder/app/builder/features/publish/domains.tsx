@@ -12,7 +12,6 @@ import {
   Link,
   SmallIconButton,
   NestedInputButton,
-  Separator,
   toast,
 } from "@webstudio-is/design-system";
 import type { Project } from "@webstudio-is/project";
@@ -34,7 +33,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Entri } from "./entri";
 import { nativeClient } from "~/shared/trpc/trpc-client";
 import { useStore } from "@nanostores/react";
 import { $publisherHost } from "~/shared/sync/data-stores";
@@ -330,17 +328,13 @@ const DomainItem = ({
     pathname: currentSystem.pathname,
   });
   const cname = extractCname(projectDomain.domain);
+  // Cloudflare Pages serves the site; one CNAME to the site address is all
+  // a custom domain needs, at any DNS provider.
   const dnsRecords = [
     {
       type: "CNAME",
       host: cname,
-      value: `${projectDomain.cname}.customers.${publisherHost}`,
-      ttl: 300,
-    } as const,
-    {
-      type: "TXT",
-      host: cname === "@" ? "_webstudio_is" : `_webstudio_is.${cname}`,
-      value: projectDomain.expectedTxtRecord,
+      value: `${project.domain}.${publisherHost}`,
       ttl: 300,
     } as const,
   ];
@@ -475,8 +469,8 @@ const DomainItem = ({
             content={
               <Text>
                 Visit the admin console of your domain registrar (the website
-                you purchased your domain from) and create one CNAME record and
-                one TXT record with the values shown below.{" "}
+                you purchased your domain from) and create one CNAME record with
+                the values shown below, then press Check status.{" "}
                 <Link
                   color="inherit"
                   href="https://github.com/ammarahmed-dev/claude"
@@ -535,39 +529,13 @@ const DomainItem = ({
           ))}
         </Grid>
 
-        <Grid
-          gap={2}
-          align={"center"}
-          css={{
-            gridTemplateColumns: `1fr auto 1fr`,
-          }}
-        >
-          <Separator css={{ alignSelf: "unset" }} />
-          <Text color="main">or</Text>
-          <Separator css={{ alignSelf: "unset" }} />
-        </Grid>
-
-        <Entri
-          dnsRecords={dnsRecords}
-          domain={projectDomain.domain}
-          onClose={() => {
-            // Sometimes Entri modal dialog hangs even if it's successful,
-            // until they fix that, we'll just refresh the status here on every onClose event
-            if (status === "UNVERIFIED") {
-              startTransition(async () => {
-                // oxlint-disable-next-line react-hooks/rules-of-hooks -- our useEffectEvent is a stable callback
-                await handleVerify();
-                // oxlint-disable-next-line react-hooks/rules-of-hooks -- our useEffectEvent is a stable callback
-                await handleUpdateStatus();
-              });
-              return;
-            }
-            startTransition(async () => {
-              // oxlint-disable-next-line react-hooks/rules-of-hooks -- our useEffectEvent is a stable callback
-              await handleUpdateStatus();
-            });
-          }}
-        />
+        {cname === "@" && (
+          <Text color="subtle">
+            Root domains like example.com need their DNS on Cloudflare. Add
+            www.example.com instead and redirect the root domain to it at your
+            DNS provider.
+          </Text>
+        )}
       </Grid>
     </CollapsibleDomainSection>
   );
