@@ -44,6 +44,8 @@ step "generate pages"
 node ../../packages/cli/local.js build --template ssg
 
 step "build"
+# compile the workspace packages from source, they have no prebuilt output here
+export WEBSTUDIO_LOCAL_CLI_BOOTSTRAPPED=1
 pnpm exec vite build >/tmp/vite.log 2>&1 || { tail -60 /tmp/vite.log; false; }
 pnpm exec vike prerender >>/tmp/vite.log 2>&1 || { tail -60 /tmp/vite.log; false; }
 
