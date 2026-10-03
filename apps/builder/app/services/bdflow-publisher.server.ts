@@ -22,6 +22,9 @@ export const isBdflowPublishingConfigured = () =>
 
 const SANDBOX_TIMEOUT = 15 * 60 * 1000;
 
+/** Prepared sandbox publishes fork from; the daily job keeps it current. */
+export const publishBaseSandbox = "bdflow-publisher";
+
 // The sandbox holds the repository in its working directory (a fresh clone,
 // or an older one from the prepared snapshot that UPDATE_REF brings up to
 // date); find it instead of assuming a folder name.
@@ -45,11 +48,22 @@ const sandboxOptions = {
 } as const;
 
 /**
- * Starts from the prepared snapshot (tools already installed) when there is
- * one, and from a fresh clone otherwise.
+ * Starts from the prepared base sandbox (tools already installed), then from
+ * the snapshot in BDFLOW_PUBLISH_SNAPSHOT, and from a fresh clone otherwise.
  */
 const createPublishSandbox = async (tags: Record<string, string>) => {
   const { Sandbox } = await import("@vercel/sandbox");
+  // the daily job keeps this sandbox's snapshot current, see maintenance
+  try {
+    const sandbox = await Sandbox.fork({
+      ...sandboxOptions,
+      tags,
+      sourceSandbox: publishBaseSandbox,
+    });
+    return { sandbox, fromSnapshot: true };
+  } catch (error) {
+    console.error("Publish base sandbox is not usable", error);
+  }
   const snapshotId = env.BDFLOW_PUBLISH_SNAPSHOT;
   if (snapshotId !== undefined && snapshotId !== "") {
     try {

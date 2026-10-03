@@ -1,0 +1,20 @@
+# Checks the live BD Flow editor every 6 hours: database reachable and a
+# backup from the last 36 hours. A failed run emails the repository owner.
+name: BD Flow health
+
+on:
+  schedule:
+    - cron: "23 */6 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Editor answers
+        run: curl --fail --silent --show-error --max-time 60 https://bdflow-studio.vercel.app/login -o /dev/null
+      - name: Database and backups
+        run: curl --fail-with-body --silent --show-error --max-time 60 https://bdflow-studio.vercel.app/rest/health
