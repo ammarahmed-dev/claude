@@ -4,6 +4,9 @@
 
 - Editor and dashboard: https://bdflow-studio.vercel.app (now rebranded to BD Flow; the login page title is "BD Flow login").
 - Published demo site: https://cms-demo-site.ammar-d29.workers.dev
+- Publish button: builds the site in a short-lived Vercel Sandbox (scripts/bdflow-publish.sh) and
+  deploys it to Cloudflare Workers at `https://<site address>.ammar-d29.workers.dev`. The build was
+  verified in a sandbox (about 40 s); the first full publish through the button is still unverified.
 
 ## Done overnight
 
