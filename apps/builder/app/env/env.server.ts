@@ -48,6 +48,15 @@ const environment = z.object({
 
   PUBLISHER_HOST: z.string().default("bdflow.local"),
 
+  // BD Flow publishing: sites are built in a Vercel Sandbox and served by
+  // Cloudflare Workers at <site>.<PUBLISHER_HOST>
+  CLOUDFLARE_API_TOKEN: z.string().optional(),
+  CLOUDFLARE_ACCOUNT_ID: z.string().optional(),
+  BDFLOW_PUBLISH_REPO: z
+    .string()
+    .default("https://github.com/ammarahmed-dev/claude.git"),
+  BDFLOW_PUBLISH_REF: z.string().default("claude/admiring-einstein-fw094e"),
+
   STAGING_USERNAME: z.string().default("admin"),
   STAGING_PASSWORD: z.string().default("webstudio"),
 
@@ -108,6 +117,10 @@ const rawEnv = {
   ENTRI_APPLICATION_ID: process.env.ENTRI_APPLICATION_ID,
   ENTRI_SECRET: process.env.ENTRI_SECRET,
   PUBLISHER_HOST: process.env.PUBLISHER_HOST,
+  CLOUDFLARE_API_TOKEN: process.env.CLOUDFLARE_API_TOKEN,
+  CLOUDFLARE_ACCOUNT_ID: process.env.CLOUDFLARE_ACCOUNT_ID,
+  BDFLOW_PUBLISH_REPO: process.env.BDFLOW_PUBLISH_REPO,
+  BDFLOW_PUBLISH_REF: process.env.BDFLOW_PUBLISH_REF,
   STAGING_USERNAME: process.env.STAGING_USERNAME,
   STAGING_PASSWORD: process.env.STAGING_PASSWORD,
   FEATURE_FLAGS: process.env.FEATURE_FLAGS,

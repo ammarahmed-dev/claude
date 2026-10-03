@@ -3,6 +3,10 @@ import env from "~/env/env.server";
 import { authenticator } from "~/services/auth.server";
 import { trpcSharedClient } from "~/services/trpc.server";
 import { entryApi } from "./entri/entri-api.server";
+import {
+  createBdflowDeploymentTrpc,
+  isBdflowPublishingConfigured,
+} from "~/services/bdflow-publisher.server";
 
 import {
   getPlanInfo,
@@ -155,9 +159,26 @@ const getRequestOrigin = (urlStr: string) => {
   return url.origin;
 };
 
-const createDeploymentContext = (builderOrigin: string) => {
+const createDeploymentContext = (
+  builderOrigin: string,
+  postgrest: AppContext["postgrest"]
+) => {
+  // The site address a build publishes to, e.g. "my-site" for my-site.<host>
+  const getSiteDomain = async (buildId: string) => {
+    const result = await postgrest.client
+      .from("Build")
+      .select("deployment")
+      .eq("id", buildId)
+      .maybeSingle();
+    const deployment = JSON.parse(result.data?.deployment ?? "null") as {
+      assetsDomain?: string;
+    } | null;
+    return deployment?.assetsDomain;
+  };
   const context: AppContext["deployment"] = {
-    deploymentTrpc: trpcSharedClient.deployment,
+    deploymentTrpc: isBdflowPublishingConfigured()
+      ? createBdflowDeploymentTrpc(trpcSharedClient.deployment, getSiteDomain)
+      : trpcSharedClient.deployment,
     env: {
       BUILDER_ORIGIN: getRequestOrigin(builderOrigin),
       GITHUB_REF_NAME: staticEnv.GITHUB_REF_NAME ?? "undefined",
@@ -238,7 +259,10 @@ export const createContext = async (request: Request): Promise<AppContext> => {
   };
 
   const domain = createDomainContext();
-  const deployment = createDeploymentContext(getRequestOrigin(request.url));
+  const deployment = createDeploymentContext(
+    getRequestOrigin(request.url),
+    postgrest
+  );
   const entri = createEntriContext();
   const { planFeatures, purchases } = await resolvePlanInfo(authorization);
   const trpcCache = createTrpcCache();
